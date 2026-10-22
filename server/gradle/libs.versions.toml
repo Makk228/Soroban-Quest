@@ -1,0 +1,61 @@
+# Централизованный каталог версий: все зависимости и плагины объявляются здесь,
+# модули ссылаются на них по алиасам (libs.*). Обновление версии — в одном месте.
+[versions]
+kotlin = "2.2.21"
+springBoot = "3.5.16"
+springDependencyManagement = "1.1.7"
+springdoc = "2.8.17"
+jjwt = "0.12.7"
+mockk = "1.14.11"
+kotlinLogging = "7.0.3"
+
+[libraries]
+# --- Spring Boot starters (версии подтягиваются из BOM Spring Boot) ---
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
+spring-security-test = { module = "org.springframework.security:spring-security-test" }
+spring-security-crypto = { module = "org.springframework.security:spring-security-crypto" }
+spring-context = { module = "org.springframework:spring-context" }
+spring-web = { module = "org.springframework:spring-web" }
+spring-webmvc = { module = "org.springframework:spring-webmvc" }
+spring-tx = { module = "org.springframework:spring-tx" }
+spring-jdbc = { module = "org.springframework:spring-jdbc" }
+
+# --- Kotlin ---
+jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
+
+# --- Инфраструктура ---
+postgresql = { module = "org.postgresql:postgresql" }
+flyway-core = { module = "org.flywaydb:flyway-core" }
+flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
+
+# --- API-документация ---
+springdoc-openapi-webmvc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+
+# --- JWT ---
+jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
+jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
+jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
+
+# --- Логирование ---
+kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlinLogging" }
+
+# --- Тесты ---
+kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", version.ref = "kotlin" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+assertj-core = { module = "org.assertj:assertj-core" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
+testcontainers-junit = { module = "org.testcontainers:junit-jupiter" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
