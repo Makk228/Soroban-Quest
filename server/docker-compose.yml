@@ -1,0 +1,43 @@
+# Воспроизводимый запуск: `cp .env.example .env && docker compose up --build`
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: soroban-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-soroban}
+      POSTGRES_USER: ${POSTGRES_USER:-soroban}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в .env}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - soroban-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-soroban} -d ${POSTGRES_DB:-soroban}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: soroban-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-soroban}
+      DATABASE_USER: ${POSTGRES_USER:-soroban}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в .env}
+      SOROBAN_JWT_SECRET: ${SOROBAN_JWT_SECRET:?Задайте SOROBAN_JWT_SECRET в .env (минимум 32 байта)}
+      SOROBAN_TIME_ZONE: ${SOROBAN_TIME_ZONE:-UTC}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  soroban-pgdata:

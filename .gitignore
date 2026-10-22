@@ -1,0 +1,24 @@
+# Сборка
+build/
+out/
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+.gradle/
+
+# Секреты и локальное окружение
+.env
+*.local
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# ОС
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
