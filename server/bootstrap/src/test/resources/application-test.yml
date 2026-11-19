@@ -1,0 +1,14 @@
+# Профиль тестов: база поднимается Testcontainers'ом, секрет фиксированный.
+soroban:
+  identity:
+    jwt-secret: "test-secret-key-for-integration-tests-32+"
+    access-token-ttl: PT15M
+    refresh-token-ttl: P7D
+    bcrypt-strength: 4   # ускоряет тесты, в продакшене 10+
+  training:
+    max-active-sessions: 5
+
+logging:
+  level:
+    com.sorobanquest: INFO
+    org.testcontainers: WARN

@@ -129,8 +129,8 @@
 ```
 api/                 публичные типы и интерфейсы — всё, что видят другие модули
 internal/domain/     чистый Kotlin: агрегаты, политики, инварианты (без Spring и SQL)
-internal/application/сценарии: оркестрация домена, портов хранения и событий
-internal/persistence/адаптеры к PostgreSQL (JDBC), реализуют порты из application
+internal/application/сценарии: оркестрация домена, JDBC-репозиториев и событий
+internal/persistence/конкретные репозитории PostgreSQL (JDBC)
 internal/config/     единственное место, где модуль соприкасается со Spring (@Bean)
 ```
 
@@ -158,7 +158,7 @@ internal/config/     единственное место, где модуль с
 |---|---|
 | **Kotlin 2.2 / JDK 21** | Язык реализации; `internal` обеспечивает границы модулей, data-классы — неизменяемый домен |
 | **Gradle (Kotlin DSL) + version catalog** | Мультимодульная сборка; версии зависимостей — только в `gradle/libs.versions.toml` |
-| **Spring Boot 3.5** (web, jdbc, security, validation, actuator) | HTTP-сервер, пул соединений, транзакции, фильтры безопасности, health-проба |
+| **Spring Boot 3.5** (web, jdbc, security, actuator) | HTTP-сервер, пул соединений, транзакции, фильтры безопасности, health-проба |
 | **PostgreSQL 17** | Хранение; нужны `on conflict`, оконные функции (`rank()`), блокировки строк |
 | **Flyway** | Версионируемые миграции схемы; каждая миграция лежит в своём модуле |
 | **jjwt 0.12** | Подпись и проверка JWT (HS256) |
