@@ -18,11 +18,7 @@ internal object LevelCurve {
 
     fun levelFor(totalXp: Long): Int {
         require(totalXp >= 0) { "Опыт не может быть отрицательным" }
-        var level = 1
-        while (level < MAX_LEVEL && totalXp >= thresholdFor(level + 1)) {
-            level++
-        }
-        return level
+        return (1..MAX_LEVEL).last { totalXp >= thresholdFor(it) }
     }
 
     fun xpIntoLevel(totalXp: Long): Long = totalXp - thresholdFor(levelFor(totalXp))

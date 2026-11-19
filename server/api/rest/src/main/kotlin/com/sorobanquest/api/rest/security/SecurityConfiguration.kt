@@ -23,7 +23,6 @@ import java.net.URI
 @Configuration(proxyBeanMethods = false)
 @EnableWebSecurity
 class SecurityConfiguration {
-
     @Bean
     fun jwtAuthenticationFilter(
         verifier: AccessTokenVerifier,
@@ -42,18 +41,18 @@ class SecurityConfiguration {
             .formLogin { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
-                it.requestMatchers(
-                    "/api/v1/auth/**",
-                    "/actuator/health",
-                    "/actuator/health/**",
-                    "/actuator/info",
-                    "/v3/api-docs/**",
-                    "/swagger-ui/**",
-                    "/swagger-ui.html",
-                ).permitAll()
+                it
+                    .requestMatchers(
+                        "/api/v1/auth/**",
+                        "/actuator/health",
+                        "/actuator/health/**",
+                        "/actuator/info",
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                    ).permitAll()
                 it.anyRequest().authenticated()
-            }
-            .exceptionHandling { handling ->
+            }.exceptionHandling { handling ->
                 handling.authenticationEntryPoint { request, response, _ ->
                     writeProblem(
                         request,
@@ -74,8 +73,7 @@ class SecurityConfiguration {
                         "Недостаточно прав",
                     )
                 }
-            }
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
+            }.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
         return http.build()
     }
 
@@ -87,12 +85,13 @@ class SecurityConfiguration {
         code: String,
         detail: String,
     ) {
-        val problem = ProblemDetail.forStatusAndDetail(status, detail).apply {
-            title = status.reasonPhrase
-            type = URI.create("https://sorobanquest.dev/errors/${code.lowercase()}")
-            instance = URI.create(request.requestURI)
-            setProperty("code", code)
-        }
+        val problem =
+            ProblemDetail.forStatusAndDetail(status, detail).apply {
+                title = status.reasonPhrase
+                type = URI.create("https://sorobanquest.dev/errors/${code.lowercase()}")
+                instance = URI.create(request.requestURI)
+                setProperty("code", code)
+            }
         response.status = status.value()
         response.contentType = MediaType.APPLICATION_PROBLEM_JSON_VALUE
         response.characterEncoding = Charsets.UTF_8.name()

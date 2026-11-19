@@ -20,16 +20,24 @@ internal object ScoringPolicy {
     const val MAX_COMBO_STEPS = 10
     const val COMBO_STEP = 0.05
 
-    fun pointsFor(difficulty: Difficulty, correct: Boolean, elapsedMs: Long, comboAfterAnswer: Int): Int {
+    fun pointsFor(
+        difficulty: Difficulty,
+        correct: Boolean,
+        elapsedMs: Long,
+        comboAfterAnswer: Int,
+    ): Int {
         if (!correct) return 0
-        val profile = DifficultyProfile.of(difficulty)
+        val profile = DifficultyProfileFactory.of(difficulty)
         val base = BASE_POINTS_PER_LEVEL * difficulty.level
         val speedFactor = speedFactor(elapsedMs, profile.targetAnswerMs)
         val comboMultiplier = 1.0 + min(comboAfterAnswer - 1, MAX_COMBO_STEPS).coerceAtLeast(0) * COMBO_STEP
         return (base * speedFactor * comboMultiplier).roundToInt()
     }
 
-    fun speedFactor(elapsedMs: Long, targetMs: Long): Double {
+    fun speedFactor(
+        elapsedMs: Long,
+        targetMs: Long,
+    ): Double {
         val fast = targetMs / 2.0
         val slow = targetMs * 2.0
         return when {

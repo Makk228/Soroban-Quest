@@ -1,7 +1,6 @@
 package com.sorobanquest.leaderboard.internal.persistence
 
 import com.sorobanquest.leaderboard.api.LeaderboardPeriod
-import com.sorobanquest.leaderboard.internal.application.LeaderboardRepository
 import com.sorobanquest.leaderboard.internal.application.RankedRow
 import com.sorobanquest.shared.model.UserId
 import org.springframework.jdbc.core.RowMapper
@@ -17,9 +16,14 @@ import java.util.UUID
  */
 internal class JdbcLeaderboardRepository(
     private val jdbc: NamedParameterJdbcTemplate,
-) : LeaderboardRepository {
-
-    override fun addXp(userId: UserId, period: LeaderboardPeriod, periodKey: String, xp: Int, sessions: Int) {
+) {
+    fun addXp(
+        userId: UserId,
+        period: LeaderboardPeriod,
+        periodKey: String,
+        xp: Int,
+        sessions: Int,
+    ) {
         jdbc.update(
             """
             insert into leaderboard.entries (period_type, period_key, user_id, xp, sessions, updated_at)
@@ -38,49 +42,66 @@ internal class JdbcLeaderboardRepository(
         )
     }
 
-    override fun top(period: LeaderboardPeriod, periodKey: String, limit: Int): List<RankedRow> = jdbc.query(
-        """
-        select user_id, xp, sessions,
-               rank() over (order by xp desc, updated_at asc) as position
-        from leaderboard.entries
-        where period_type = :periodType and period_key = :periodKey
-        order by position
-        limit :limit
-        """.trimIndent(),
-        MapSqlParameterSource()
-            .addValue("periodType", period.name)
-            .addValue("periodKey", periodKey)
-            .addValue("limit", limit),
-        ROW_MAPPER,
-    )
-
-    override fun rankOf(userId: UserId, period: LeaderboardPeriod, periodKey: String): RankedRow? = jdbc.query(
-        """
-        select * from (
+    fun top(
+        period: LeaderboardPeriod,
+        periodKey: String,
+        limit: Int,
+    ): List<RankedRow> =
+        jdbc.query(
+            """
             select user_id, xp, sessions,
                    rank() over (order by xp desc, updated_at asc) as position
             from leaderboard.entries
             where period_type = :periodType and period_key = :periodKey
-        ) ranked
-        where user_id = :userId
-        """.trimIndent(),
-        MapSqlParameterSource()
-            .addValue("periodType", period.name)
-            .addValue("periodKey", periodKey)
-            .addValue("userId", userId.value),
-        ROW_MAPPER,
-    ).firstOrNull()
+            order by position
+            limit :limit
+            """.trimIndent(),
+            MapSqlParameterSource()
+                .addValue("periodType", period.name)
+                .addValue("periodKey", periodKey)
+                .addValue("limit", limit),
+            JdbcLeaderboardRepositoryFactory.ROW_MAPPER,
+        )
 
-    override fun countParticipants(period: LeaderboardPeriod, periodKey: String): Long = jdbc.queryForObject(
-        "select count(*) from leaderboard.entries where period_type = :periodType and period_key = :periodKey",
-        MapSqlParameterSource()
-            .addValue("periodType", period.name)
-            .addValue("periodKey", periodKey),
-        Long::class.java,
-    ) ?: 0L
+    fun rankOf(
+        userId: UserId,
+        period: LeaderboardPeriod,
+        periodKey: String,
+    ): RankedRow? =
+        jdbc
+            .query(
+                """
+                select * from (
+                    select user_id, xp, sessions,
+                           rank() over (order by xp desc, updated_at asc) as position
+                    from leaderboard.entries
+                    where period_type = :periodType and period_key = :periodKey
+                ) ranked
+                where user_id = :userId
+                """.trimIndent(),
+                MapSqlParameterSource()
+                    .addValue("periodType", period.name)
+                    .addValue("periodKey", periodKey)
+                    .addValue("userId", userId.value),
+                JdbcLeaderboardRepositoryFactory.ROW_MAPPER,
+            ).firstOrNull()
 
-    private companion object {
-        val ROW_MAPPER = RowMapper { rs: ResultSet, _: Int ->
+    fun countParticipants(
+        period: LeaderboardPeriod,
+        periodKey: String,
+    ): Long =
+        jdbc.queryForObject(
+            "select count(*) from leaderboard.entries where period_type = :periodType and period_key = :periodKey",
+            MapSqlParameterSource()
+                .addValue("periodType", period.name)
+                .addValue("periodKey", periodKey),
+            Long::class.java,
+        ) ?: 0L
+}
+
+private object JdbcLeaderboardRepositoryFactory {
+    val ROW_MAPPER =
+        RowMapper { rs: ResultSet, _: Int ->
             RankedRow(
                 rank = rs.getInt("position"),
                 userId = UserId(rs.getObject("user_id", UUID::class.java)),
@@ -88,5 +109,4 @@ internal class JdbcLeaderboardRepository(
                 sessions = rs.getInt("sessions"),
             )
         }
-    }
 }

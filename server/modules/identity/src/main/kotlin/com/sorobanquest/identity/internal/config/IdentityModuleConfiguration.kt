@@ -28,31 +28,26 @@ import java.time.Duration
  */
 @ConfigurationProperties(prefix = "soroban.identity")
 data class IdentityProperties(
-    val jwtSecret: String = "",
-    val jwtIssuer: String = "soroban-quest",
-    val accessTokenTtl: Duration = Duration.ofMinutes(30),
-    val refreshTokenTtl: Duration = Duration.ofDays(30),
-    val bcryptStrength: Int = 10,
+    val jwtSecret: String,
+    val jwtIssuer: String,
+    val accessTokenTtl: Duration,
+    val refreshTokenTtl: Duration,
+    val bcryptStrength: Int,
 ) {
     fun validated(): IdentityProperties {
-        check(jwtSecret.toByteArray().size >= MIN_SECRET_BYTES) {
-            "soroban.identity.jwt-secret должен быть длиной не менее $MIN_SECRET_BYTES байт " +
+        check(jwtSecret.toByteArray().size >= IdentityPropertiesFactory.MIN_SECRET_BYTES) {
+            "soroban.identity.jwt-secret должен быть длиной не менее ${IdentityPropertiesFactory.MIN_SECRET_BYTES} байт " +
                 "(задайте переменную окружения SOROBAN_JWT_SECRET)"
         }
         check(!accessTokenTtl.isZero && !accessTokenTtl.isNegative) { "access-token-ttl должен быть положительным" }
         check(!refreshTokenTtl.isZero && !refreshTokenTtl.isNegative) { "refresh-token-ttl должен быть положительным" }
         return this
     }
-
-    private companion object {
-        const val MIN_SECRET_BYTES = 32
-    }
 }
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(IdentityProperties::class)
 class IdentityModuleConfiguration {
-
     @Bean
     fun authenticationService(
         jdbc: NamedParameterJdbcTemplate,
@@ -84,9 +79,14 @@ class IdentityModuleConfiguration {
     fun accessTokenVerifier(properties: IdentityProperties): AccessTokenVerifier = jwtIssuer(properties.validated())
 
     /** Класс не хранит состояния, поэтому отдельные экземпляры для выпуска и проверки безопасны. */
-    private fun jwtIssuer(properties: IdentityProperties) = JwtAccessTokenIssuer(
-        secret = properties.jwtSecret,
-        issuer = properties.jwtIssuer,
-        accessTokenTtl = properties.accessTokenTtl,
-    )
+    private fun jwtIssuer(properties: IdentityProperties) =
+        JwtAccessTokenIssuer(
+            secret = properties.jwtSecret,
+            issuer = properties.jwtIssuer,
+            accessTokenTtl = properties.accessTokenTtl,
+        )
+}
+
+private object IdentityPropertiesFactory {
+    const val MIN_SECRET_BYTES = 32
 }

@@ -17,14 +17,18 @@ internal data class SkillMastery(
 ) {
     val accuracy: Double get() = if (tasksAnswered == 0) 0.0 else correctAnswers.toDouble() / tasksAnswered
 
-    fun apply(outcome: SessionOutcome, now: Instant): SkillMastery {
+    fun apply(
+        outcome: SessionOutcome,
+        now: Instant,
+    ): SkillMastery {
         val averageAnswerMs = outcome.averageAnswerMs
         // Рекорд скорости засчитываем только за «честную» тренировку: точность от 80 %.
-        val newBestAverage = if (outcome.accuracy >= 0.8 && averageAnswerMs > 0) {
-            bestAverageAnswerMs?.let { minOf(it, averageAnswerMs) } ?: averageAnswerMs
-        } else {
-            bestAverageAnswerMs
-        }
+        val newBestAverage =
+            if (outcome.accuracy >= 0.8 && averageAnswerMs > 0) {
+                bestAverageAnswerMs?.let { minOf(it, averageAnswerMs) } ?: averageAnswerMs
+            } else {
+                bestAverageAnswerMs
+            }
         return copy(
             sessions = sessions + 1,
             tasksAnswered = tasksAnswered + outcome.taskCount,
@@ -34,17 +38,21 @@ internal data class SkillMastery(
             updatedAt = now,
         )
     }
+}
 
-    companion object {
-        fun empty(userId: UserId, kind: DrillKind, now: Instant) = SkillMastery(
-            userId = userId,
-            kind = kind,
-            sessions = 0,
-            tasksAnswered = 0,
-            correctAnswers = 0,
-            bestScore = 0,
-            bestAverageAnswerMs = null,
-            updatedAt = now,
-        )
-    }
+internal object SkillMasteryFactory {
+    fun empty(
+        userId: UserId,
+        kind: DrillKind,
+        now: Instant,
+    ) = SkillMastery(
+        userId = userId,
+        kind = kind,
+        sessions = 0,
+        tasksAnswered = 0,
+        correctAnswers = 0,
+        bestScore = 0,
+        bestAverageAnswerMs = null,
+        updatedAt = now,
+    )
 }

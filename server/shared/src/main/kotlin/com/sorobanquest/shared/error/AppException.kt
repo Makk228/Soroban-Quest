@@ -18,36 +18,41 @@ enum class ErrorCode {
 sealed class AppException(
     val code: ErrorCode,
     message: String,
-    val details: Map<String, Any?> = emptyMap(),
-    cause: Throwable? = null,
+    val details: Map<String, Any?>,
+    cause: Throwable?,
 ) : RuntimeException(message, cause)
 
 class ValidationException(
     message: String,
-    details: Map<String, Any?> = emptyMap(),
-) : AppException(ErrorCode.VALIDATION_FAILED, message, details)
+    details: Map<String, Any?>,
+) : AppException(ErrorCode.VALIDATION_FAILED, message, details, cause = null)
 
 class NotFoundException(
     resource: String,
     id: Any?,
-) : AppException(ErrorCode.NOT_FOUND, "$resource не найден: $id", mapOf("resource" to resource, "id" to id?.toString()))
+) : AppException(ErrorCode.NOT_FOUND, "$resource не найден: $id", mapOf("resource" to resource, "id" to id?.toString()), cause = null)
 
 class ConflictException(
     message: String,
-    details: Map<String, Any?> = emptyMap(),
-) : AppException(ErrorCode.CONFLICT, message, details)
+    details: Map<String, Any?>,
+) : AppException(ErrorCode.CONFLICT, message, details, cause = null)
 
 class UnauthorizedException(
-    message: String = "Требуется аутентификация",
-) : AppException(ErrorCode.UNAUTHORIZED, message)
+    message: String,
+) : AppException(ErrorCode.UNAUTHORIZED, message, details = emptyMap(), cause = null)
 
 class ForbiddenException(
-    message: String = "Недостаточно прав",
-) : AppException(ErrorCode.FORBIDDEN, message)
+    message: String,
+) : AppException(ErrorCode.FORBIDDEN, message, details = emptyMap(), cause = null)
 
 /** Нарушение бизнес-правила домена (например, ответ на уже завершённую сессию). */
 class RuleViolationException(
     val rule: String,
     message: String,
-    details: Map<String, Any?> = emptyMap(),
-) : AppException(ErrorCode.RULE_VIOLATION, message, details + ("rule" to rule))
+    details: Map<String, Any?>,
+) : AppException(
+        ErrorCode.RULE_VIOLATION,
+        message,
+        details + ("rule" to rule),
+        cause = null,
+    )

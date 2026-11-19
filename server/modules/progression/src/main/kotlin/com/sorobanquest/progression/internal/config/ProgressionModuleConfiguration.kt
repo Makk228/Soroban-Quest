@@ -27,7 +27,7 @@ import java.time.ZoneId
  */
 @ConfigurationProperties(prefix = "soroban.progression")
 data class ProgressionProperties(
-    val timeZone: String = "UTC",
+    val timeZone: String,
 ) {
     fun zoneId(): ZoneId = ZoneId.of(timeZone)
 }
@@ -35,27 +35,26 @@ data class ProgressionProperties(
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(ProgressionProperties::class)
 class ProgressionModuleConfiguration {
-
     @Bean
     fun progressionService(
         jdbc: NamedParameterJdbcTemplate,
         transactionRunner: TransactionRunner,
         clock: Clock,
         properties: ProgressionProperties,
-    ): ProgressionService = ProgressionServiceImpl(
-        profiles = JdbcLearnerProfileRepository(jdbc),
-        achievements = JdbcAchievementRepository(jdbc),
-        skills = JdbcSkillMasteryRepository(jdbc),
-        dailyProgress = JdbcDailyProgressRepository(jdbc),
-        transactions = transactionRunner,
-        clock = clock,
-        zoneId = properties.zoneId(),
-    )
+    ): ProgressionService =
+        ProgressionServiceImpl(
+            profiles = JdbcLearnerProfileRepository(jdbc),
+            achievements = JdbcAchievementRepository(jdbc),
+            skills = JdbcSkillMasteryRepository(jdbc),
+            dailyProgress = JdbcDailyProgressRepository(jdbc),
+            transactions = transactionRunner,
+            clock = clock,
+            zoneId = properties.zoneId(),
+        )
 
     @Bean
-    fun userRegisteredProgressionHandler(
-        jdbc: NamedParameterJdbcTemplate,
-    ): DomainEventHandler<UserRegistered> = UserRegisteredHandler(JdbcLearnerProfileRepository(jdbc))
+    fun userRegisteredProgressionHandler(jdbc: NamedParameterJdbcTemplate): DomainEventHandler<UserRegistered> =
+        UserRegisteredHandler(JdbcLearnerProfileRepository(jdbc))
 
     @Bean
     fun trainingSessionCompletedProgressionHandler(
@@ -64,14 +63,15 @@ class ProgressionModuleConfiguration {
         eventPublisher: DomainEventPublisher,
         clock: Clock,
         properties: ProgressionProperties,
-    ): DomainEventHandler<TrainingSessionCompleted> = TrainingSessionCompletedHandler(
-        profiles = JdbcLearnerProfileRepository(jdbc),
-        skills = JdbcSkillMasteryRepository(jdbc),
-        achievements = JdbcAchievementRepository(jdbc),
-        dailyProgress = JdbcDailyProgressRepository(jdbc),
-        transactions = transactionRunner,
-        events = eventPublisher,
-        clock = clock,
-        zoneId = properties.zoneId(),
-    )
+    ): DomainEventHandler<TrainingSessionCompleted> =
+        TrainingSessionCompletedHandler(
+            profiles = JdbcLearnerProfileRepository(jdbc),
+            skills = JdbcSkillMasteryRepository(jdbc),
+            achievements = JdbcAchievementRepository(jdbc),
+            dailyProgress = JdbcDailyProgressRepository(jdbc),
+            transactions = transactionRunner,
+            events = eventPublisher,
+            clock = clock,
+            zoneId = properties.zoneId(),
+        )
 }

@@ -6,8 +6,7 @@ import com.sorobanquest.shared.model.SessionId
 import com.sorobanquest.shared.model.UserId
 import com.sorobanquest.training.api.DrillKind
 import com.sorobanquest.training.api.SessionStatus
-import com.sorobanquest.training.internal.application.PracticeSessionRepository
-import com.sorobanquest.training.internal.domain.Difficulty
+import com.sorobanquest.training.internal.domain.DifficultyFactory
 import com.sorobanquest.training.internal.domain.PracticeSession
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource
@@ -22,9 +21,8 @@ import java.time.ZoneOffset
  */
 internal class JdbcPracticeSessionRepository(
     private val jdbc: NamedParameterJdbcTemplate,
-) : PracticeSessionRepository {
-
-    override fun insert(session: PracticeSession) {
+) {
+    fun insert(session: PracticeSession) {
         jdbc.update(
             """
             insert into training.practice_sessions
@@ -40,93 +38,107 @@ internal class JdbcPracticeSessionRepository(
         )
     }
 
-    override fun findById(id: SessionId): PracticeSession? = jdbc.query(
-        "select * from training.practice_sessions where id = :id",
-        MapSqlParameterSource("id", id.value),
-        ROW_MAPPER,
-    ).firstOrNull()
+    fun findById(id: SessionId): PracticeSession? =
+        jdbc
+            .query(
+                "select * from training.practice_sessions where id = :id",
+                MapSqlParameterSource("id", id.value),
+                JdbcPracticeSessionRepositoryFactory.ROW_MAPPER,
+            ).firstOrNull()
 
-    override fun findByIdForUpdate(id: SessionId): PracticeSession? = jdbc.query(
-        "select * from training.practice_sessions where id = :id for update",
-        MapSqlParameterSource("id", id.value),
-        ROW_MAPPER,
-    ).firstOrNull()
+    fun findByIdForUpdate(id: SessionId): PracticeSession? =
+        jdbc
+            .query(
+                "select * from training.practice_sessions where id = :id for update",
+                MapSqlParameterSource("id", id.value),
+                JdbcPracticeSessionRepositoryFactory.ROW_MAPPER,
+            ).firstOrNull()
 
-    override fun update(session: PracticeSession): Boolean {
-        val updated = jdbc.update(
-            """
-            update training.practice_sessions set
-                status = :status,
-                answered_count = :answeredCount,
-                correct_count = :correctCount,
-                current_combo = :currentCombo,
-                best_combo = :bestCombo,
-                score = :score,
-                total_time_ms = :totalTimeMs,
-                completed_at = :completedAt,
-                version = :version
-            where id = :id and version = :previousVersion
-            """.trimIndent(),
-            session.toParams().addValue("previousVersion", session.version - 1),
-        )
+    fun update(session: PracticeSession): Boolean {
+        val updated =
+            jdbc.update(
+                """
+                update training.practice_sessions set
+                    status = :status,
+                    answered_count = :answeredCount,
+                    correct_count = :correctCount,
+                    current_combo = :currentCombo,
+                    best_combo = :bestCombo,
+                    score = :score,
+                    total_time_ms = :totalTimeMs,
+                    completed_at = :completedAt,
+                    version = :version
+                where id = :id and version = :previousVersion
+                """.trimIndent(),
+                session.toParams().addValue("previousVersion", session.version - 1),
+            )
         return updated == 1
     }
 
-    override fun countActive(userId: UserId): Int = jdbc.queryForObject(
-        "select count(*) from training.practice_sessions where user_id = :userId and status = 'IN_PROGRESS'",
-        MapSqlParameterSource("userId", userId.value),
-        Int::class.java,
-    ) ?: 0
-
-    override fun findPage(userId: UserId, pageRequest: PageRequest): Page<PracticeSession> {
-        val total = jdbc.queryForObject(
-            "select count(*) from training.practice_sessions where user_id = :userId",
+    fun countActive(userId: UserId): Int =
+        jdbc.queryForObject(
+            "select count(*) from training.practice_sessions where user_id = :userId and status = 'IN_PROGRESS'",
             MapSqlParameterSource("userId", userId.value),
-            Long::class.java,
-        ) ?: 0L
+            Int::class.java,
+        ) ?: 0
 
-        val items = jdbc.query(
-            """
-            select * from training.practice_sessions
-            where user_id = :userId
-            order by started_at desc
-            limit :limit offset :offset
-            """.trimIndent(),
-            MapSqlParameterSource()
-                .addValue("userId", userId.value)
-                .addValue("limit", pageRequest.size)
-                .addValue("offset", pageRequest.offset),
-            ROW_MAPPER,
-        )
+    fun findPage(
+        userId: UserId,
+        pageRequest: PageRequest,
+    ): Page<PracticeSession> {
+        val total =
+            jdbc.queryForObject(
+                "select count(*) from training.practice_sessions where user_id = :userId",
+                MapSqlParameterSource("userId", userId.value),
+                Long::class.java,
+            ) ?: 0L
+
+        val items =
+            jdbc.query(
+                """
+                select * from training.practice_sessions
+                where user_id = :userId
+                order by started_at desc
+                limit :limit offset :offset
+                """.trimIndent(),
+                MapSqlParameterSource()
+                    .addValue("userId", userId.value)
+                    .addValue("limit", pageRequest.size)
+                    .addValue("offset", pageRequest.offset),
+                JdbcPracticeSessionRepositoryFactory.ROW_MAPPER,
+            )
         return Page(items, pageRequest.page, pageRequest.size, total)
     }
 
-    private fun PracticeSession.toParams() = MapSqlParameterSource()
-        .addValue("id", id.value)
-        .addValue("userId", userId.value)
-        .addValue("drillKind", kind.name)
-        .addValue("difficulty", difficulty.level)
-        .addValue("seed", seed)
-        .addValue("taskCount", taskCount)
-        .addValue("generatorVersion", generatorVersion)
-        .addValue("status", status.name)
-        .addValue("answeredCount", answeredCount)
-        .addValue("correctCount", correctCount)
-        .addValue("currentCombo", currentCombo)
-        .addValue("bestCombo", bestCombo)
-        .addValue("score", score)
-        .addValue("totalTimeMs", totalTimeMs)
-        .addValue("startedAt", OffsetDateTime.ofInstant(startedAt, ZoneOffset.UTC))
-        .addValue("completedAt", completedAt?.let { OffsetDateTime.ofInstant(it, ZoneOffset.UTC) })
-        .addValue("version", version)
+    private fun PracticeSession.toParams() =
+        MapSqlParameterSource()
+            .addValue("id", id.value)
+            .addValue("userId", userId.value)
+            .addValue("drillKind", kind.name)
+            .addValue("difficulty", difficulty.level)
+            .addValue("seed", seed)
+            .addValue("taskCount", taskCount)
+            .addValue("generatorVersion", generatorVersion)
+            .addValue("status", status.name)
+            .addValue("answeredCount", answeredCount)
+            .addValue("correctCount", correctCount)
+            .addValue("currentCombo", currentCombo)
+            .addValue("bestCombo", bestCombo)
+            .addValue("score", score)
+            .addValue("totalTimeMs", totalTimeMs)
+            .addValue("startedAt", OffsetDateTime.ofInstant(startedAt, ZoneOffset.UTC))
+            .addValue("completedAt", completedAt?.let { OffsetDateTime.ofInstant(it, ZoneOffset.UTC) })
+            .addValue("version", version)
+}
 
-    private companion object {
-        val ROW_MAPPER = RowMapper { rs: ResultSet, _: Int ->
+private object JdbcPracticeSessionRepositoryFactory {
+    val ROW_MAPPER =
+        RowMapper { rs: ResultSet, _: Int ->
             PracticeSession(
                 id = SessionId(rs.getObject("id", java.util.UUID::class.java)),
                 userId = UserId(rs.getObject("user_id", java.util.UUID::class.java)),
                 kind = DrillKind.valueOf(rs.getString("drill_kind")),
-                difficulty = Difficulty.of(rs.getInt("difficulty")),
+                difficulty = DifficultyFactory.of(rs.getInt("difficulty")),
                 seed = rs.getLong("seed"),
                 taskCount = rs.getInt("task_count"),
                 generatorVersion = rs.getInt("generator_version"),
@@ -142,5 +154,4 @@ internal class JdbcPracticeSessionRepository(
                 version = rs.getLong("version"),
             )
         }
-    }
 }

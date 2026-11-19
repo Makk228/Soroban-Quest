@@ -5,11 +5,11 @@ import com.sorobanquest.identity.api.RegisterUserCommand
 import com.sorobanquest.identity.api.UserRegistered
 import com.sorobanquest.identity.internal.application.AuthenticationServiceImpl
 import com.sorobanquest.identity.internal.application.IdentitySettings
-import com.sorobanquest.identity.internal.application.RefreshTokenRepository
-import com.sorobanquest.identity.internal.application.UserRepository
 import com.sorobanquest.identity.internal.domain.EmailAddress
 import com.sorobanquest.identity.internal.domain.RefreshToken
 import com.sorobanquest.identity.internal.domain.UserAccount
+import com.sorobanquest.identity.internal.persistence.JdbcRefreshTokenRepository
+import com.sorobanquest.identity.internal.persistence.JdbcUserRepository
 import com.sorobanquest.identity.internal.security.BcryptPasswordHasher
 import com.sorobanquest.identity.internal.security.JwtAccessTokenIssuer
 import com.sorobanquest.identity.internal.security.SecureRandomRefreshTokenFactory
@@ -21,9 +21,10 @@ import com.sorobanquest.shared.event.DomainEventPublisher
 import com.sorobanquest.shared.id.IdGenerator
 import com.sorobanquest.shared.model.UserId
 import com.sorobanquest.shared.tx.TransactionRunner
+import io.mockk.every
+import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Duration
@@ -37,28 +38,25 @@ import java.util.concurrent.atomic.AtomicLong
  * подменены только хранилища — так тест остаётся быстрым, но не «пустым».
  */
 class AuthenticationServiceTest {
-
     private val users = InMemoryUserRepository()
     private val refreshTokens = InMemoryRefreshTokenRepository()
     private val publishedEvents = mutableListOf<DomainEvent>()
+
     // JWT проверяется по системному времени, поэтому фиксируем часы «сейчас»,
     // а не произвольной датой — иначе свежевыпущенный токен окажется просроченным.
     private val startedAt: Instant = Instant.now()
     private val clock = Clock.fixed(startedAt, ZoneOffset.UTC)
-    private val jwt = JwtAccessTokenIssuer(
-        secret = "integration-test-secret-key-which-is-long-enough",
-        issuer = "soroban-quest-test",
-        accessTokenTtl = Duration.ofMinutes(15),
-    )
+    private val jwt =
+        JwtAccessTokenIssuer(
+            secret = "integration-test-secret-key-which-is-long-enough",
+            issuer = "soroban-quest-test",
+            accessTokenTtl = Duration.ofMinutes(15),
+        )
 
-    private lateinit var service: AuthenticationServiceImpl
-
-    @BeforeEach
-    fun setUp() {
-        publishedEvents.clear()
-        service = AuthenticationServiceImpl(
-            users = users,
-            refreshTokens = refreshTokens,
+    private val service =
+        AuthenticationServiceImpl(
+            users = users.repository,
+            refreshTokens = refreshTokens.repository,
             passwordHasher = BcryptPasswordHasher(4),
             accessTokenIssuer = jwt,
             refreshTokenFactory = SecureRandomRefreshTokenFactory(),
@@ -68,14 +66,12 @@ class AuthenticationServiceTest {
             ids = SequentialIdGenerator(),
             settings = IdentitySettings(refreshTokenTtl = Duration.ofDays(30)),
         )
-    }
 
-    private fun register(email: String = "student@example.com") =
-        service.register(RegisterUserCommand(email, "Ученик", "soroban2026"))
+    private fun register(email: String) = service.register(RegisterUserCommand(email, "Ученик", "soroban2026"))
 
     @Test
     fun `регистрация создаёт пользователя, выдаёт токены и публикует событие`() {
-        val tokens = register()
+        val tokens = register(email = "student@example.com")
 
         assertThat(tokens.user.email).isEqualTo("student@example.com")
         assertThat(tokens.accessToken).isNotBlank()
@@ -104,7 +100,7 @@ class AuthenticationServiceTest {
 
     @Test
     fun `вход по правильному паролю выдаёт новую пару токенов`() {
-        register()
+        register(email = "student@example.com")
 
         val tokens = service.login(LoginCommand("student@example.com", "soroban2026"))
 
@@ -114,7 +110,7 @@ class AuthenticationServiceTest {
 
     @Test
     fun `неверный пароль и неизвестный адрес дают одинаковую ошибку`() {
-        register()
+        register(email = "student@example.com")
 
         assertThatThrownBy { service.login(LoginCommand("student@example.com", "wrongpass1")) }
             .isInstanceOf(UnauthorizedException::class.java)
@@ -124,7 +120,7 @@ class AuthenticationServiceTest {
 
     @Test
     fun `обновление ротирует refresh-токен`() {
-        val first = register()
+        val first = register(email = "student@example.com")
 
         val second = service.refresh(first.refreshToken)
 
@@ -134,7 +130,7 @@ class AuthenticationServiceTest {
 
     @Test
     fun `повторное использование старого refresh-токена отзывает все сессии`() {
-        val first = register()
+        val first = register(email = "student@example.com")
         val second = service.refresh(first.refreshToken)
 
         assertThatThrownBy { service.refresh(first.refreshToken) }
@@ -147,7 +143,7 @@ class AuthenticationServiceTest {
 
     @Test
     fun `выход делает refresh-токен недействительным`() {
-        val tokens = register()
+        val tokens = register(email = "student@example.com")
 
         service.logout(tokens.refreshToken)
 
@@ -157,7 +153,7 @@ class AuthenticationServiceTest {
 
     @Test
     fun `просроченный refresh-токен не принимается`() {
-        val tokens = register()
+        val tokens = register(email = "student@example.com")
         refreshTokens.expireAll(startedAt.minus(Duration.ofDays(1)))
 
         assertThatThrownBy { service.refresh(tokens.refreshToken) }
@@ -173,51 +169,66 @@ private object DirectTransactionRunner : TransactionRunner {
 
 private class SequentialIdGenerator : IdGenerator {
     private val counter = AtomicLong()
+
     override fun newId(): UUID = UUID(0, counter.incrementAndGet())
 }
 
-private class InMemoryUserRepository : UserRepository {
+private class InMemoryUserRepository {
+    val repository = mockk<JdbcUserRepository>()
     private val byId = LinkedHashMap<UserId, UserAccount>()
 
-    override fun insertIfEmailFree(user: UserAccount): Boolean {
+    private fun insertIfEmailFree(user: UserAccount): Boolean {
         if (byId.values.any { it.email == user.email }) return false
         byId[user.id] = user
         return true
     }
 
-    override fun findByEmail(email: EmailAddress): UserAccount? = byId.values.firstOrNull { it.email == email }
+    private fun findByEmail(email: EmailAddress): UserAccount? = byId.values.firstOrNull { it.email == email }
 
-    override fun findById(id: UserId): UserAccount? = byId[id]
+    private fun findById(id: UserId): UserAccount? = byId[id]
 
-    override fun findAllByIds(ids: Collection<UserId>): List<UserAccount> = ids.mapNotNull { byId[it] }
+    private fun findAllByIds(ids: Collection<UserId>): List<UserAccount> = ids.mapNotNull { byId[it] }
+
+    init {
+        every { repository.insertIfEmailFree(any()) } answers { insertIfEmailFree(arg<UserAccount>(0)) }
+        every { repository.findByEmail(any()) } answers { findByEmail(EmailAddress(arg<String>(0))) }
+        every { repository.findById(any()) } answers { findById(UserId(arg<UUID>(0))) }
+        every { repository.findAllByIds(any()) } answers { findAllByIds(arg<Collection<UserId>>(0)) }
+    }
 }
 
-private class InMemoryRefreshTokenRepository : RefreshTokenRepository {
+private class InMemoryRefreshTokenRepository {
+    val repository = mockk<JdbcRefreshTokenRepository>()
     private val tokens = LinkedHashMap<UUID, RefreshToken>()
 
-    override fun insert(token: RefreshToken) {
+    private fun insert(token: RefreshToken) {
         tokens[token.id] = token
     }
 
-    override fun findByHash(tokenHash: String): RefreshToken? = tokens.values.firstOrNull { it.tokenHash == tokenHash }
+    private fun findByHash(tokenHash: String): RefreshToken? = tokens.values.firstOrNull { it.tokenHash == tokenHash }
 
-    override fun revoke(tokenId: UUID, revokedAt: Instant): Boolean {
+    private fun revoke(
+        tokenId: UUID,
+        revokedAt: Instant,
+    ): Boolean {
         val token = tokens[tokenId] ?: return false
         if (token.revokedAt != null) return false
         tokens[tokenId] = token.copy(revokedAt = revokedAt)
         return true
     }
 
-    override fun revokeAllForUser(userId: UserId, revokedAt: Instant): Int {
-        var count = 0
-        tokens.values.filter { it.userId == userId && it.revokedAt == null }.forEach {
+    private fun revokeAllForUser(
+        userId: UserId,
+        revokedAt: Instant,
+    ): Int {
+        val activeTokens = tokens.values.filter { it.userId == userId && it.revokedAt == null }
+        activeTokens.forEach {
             tokens[it.id] = it.copy(revokedAt = revokedAt)
-            count++
         }
-        return count
+        return activeTokens.size
     }
 
-    override fun deleteExpired(before: Instant): Int {
+    private fun deleteExpired(before: Instant): Int {
         val expired = tokens.values.filter { it.expiresAt.isBefore(before) }
         expired.forEach { tokens.remove(it.id) }
         return expired.size
@@ -225,5 +236,13 @@ private class InMemoryRefreshTokenRepository : RefreshTokenRepository {
 
     fun expireAll(expiresAt: Instant) {
         tokens.keys.toList().forEach { id -> tokens[id] = tokens.getValue(id).copy(expiresAt = expiresAt) }
+    }
+
+    init {
+        every { repository.insert(any()) } answers { insert(arg<RefreshToken>(0)) }
+        every { repository.findByHash(any()) } answers { findByHash(arg<String>(0)) }
+        every { repository.revoke(any(), any()) } answers { revoke(arg<UUID>(0), arg<Instant>(1)) }
+        every { repository.revokeAllForUser(any(), any()) } answers { revokeAllForUser(UserId(arg<UUID>(0)), arg<Instant>(1)) }
+        every { repository.deleteExpired(any()) } answers { deleteExpired(arg<Instant>(0)) }
     }
 }

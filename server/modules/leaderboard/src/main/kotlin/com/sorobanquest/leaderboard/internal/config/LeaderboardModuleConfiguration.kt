@@ -19,7 +19,7 @@ import java.time.ZoneId
 @ConfigurationProperties(prefix = "soroban.leaderboard")
 data class LeaderboardProperties(
     /** Часовой пояс, по которому определяется граница недели. */
-    val timeZone: String = "UTC",
+    val timeZone: String,
 ) {
     fun zoneId(): ZoneId = ZoneId.of(timeZone)
 }
@@ -27,26 +27,27 @@ data class LeaderboardProperties(
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(LeaderboardProperties::class)
 class LeaderboardModuleConfiguration {
-
     @Bean
     fun leaderboardService(
         jdbc: NamedParameterJdbcTemplate,
         userDirectory: UserDirectory,
         clock: Clock,
         properties: LeaderboardProperties,
-    ): LeaderboardService = LeaderboardServiceImpl(
-        repository = JdbcLeaderboardRepository(jdbc),
-        users = userDirectory,
-        clock = clock,
-        zoneId = properties.zoneId(),
-    )
+    ): LeaderboardService =
+        LeaderboardServiceImpl(
+            repository = JdbcLeaderboardRepository(jdbc),
+            users = userDirectory,
+            clock = clock,
+            zoneId = properties.zoneId(),
+        )
 
     @Bean
     fun xpAwardedLeaderboardHandler(
         jdbc: NamedParameterJdbcTemplate,
         properties: LeaderboardProperties,
-    ): DomainEventHandler<XpAwarded> = XpAwardedHandler(
-        repository = JdbcLeaderboardRepository(jdbc),
-        zoneId = properties.zoneId(),
-    )
+    ): DomainEventHandler<XpAwarded> =
+        XpAwardedHandler(
+            repository = JdbcLeaderboardRepository(jdbc),
+            zoneId = properties.zoneId(),
+        )
 }

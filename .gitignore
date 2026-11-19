@@ -22,3 +22,6 @@ Thumbs.db
 
 # Логи
 *.log
+
+# Kotlin compiler local cache
+.kotlin/

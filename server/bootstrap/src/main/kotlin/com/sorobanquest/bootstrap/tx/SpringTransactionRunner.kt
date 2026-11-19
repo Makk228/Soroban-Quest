@@ -12,11 +12,10 @@ import org.springframework.transaction.support.TransactionTemplate
 class SpringTransactionRunner(
     transactionManager: PlatformTransactionManager,
 ) : TransactionRunner {
+    private val template =
+        TransactionTemplate(transactionManager).apply {
+            propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRED
+        }
 
-    private val template = TransactionTemplate(transactionManager).apply {
-        propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRED
-    }
-
-    override fun <T> required(block: () -> T): T =
-        template.execute { block() } ?: error("Транзакционный блок вернул null")
+    override fun <T> required(block: () -> T): T = template.execute { block() } ?: error("Транзакционный блок вернул null")
 }

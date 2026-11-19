@@ -39,27 +39,33 @@ internal data class LearnerProfile(
      * Серия: тренировка в тот же день её не меняет, на следующий — продлевает,
      * пропуск хотя бы одного дня — обнуляет.
      */
-    fun applySession(outcome: SessionOutcome, trainingDate: LocalDate, now: Instant): ProfileUpdate {
-        val streak = when {
-            lastTrainingDate == null -> 1
-            trainingDate == lastTrainingDate -> currentStreakDays.coerceAtLeast(1)
-            trainingDate == lastTrainingDate.plusDays(1) -> currentStreakDays + 1
-            trainingDate.isAfter(lastTrainingDate) -> 1
-            else -> currentStreakDays.coerceAtLeast(1) // тренировка «задним числом» серию не ломает
-        }
+    fun applySession(
+        outcome: SessionOutcome,
+        trainingDate: LocalDate,
+        now: Instant,
+    ): ProfileUpdate {
+        val streak =
+            when {
+                lastTrainingDate == null -> 1
+                trainingDate == lastTrainingDate -> currentStreakDays.coerceAtLeast(1)
+                trainingDate == lastTrainingDate.plusDays(1) -> currentStreakDays + 1
+                trainingDate.isAfter(lastTrainingDate) -> 1
+                else -> currentStreakDays.coerceAtLeast(1) // тренировка «задним числом» серию не ломает
+            }
         val xp = XpPolicy.xpFor(outcome, streak)
         val newTotalXp = totalXp + xp
-        val updated = copy(
-            totalXp = newTotalXp,
-            currentStreakDays = streak,
-            longestStreakDays = maxOf(longestStreakDays, streak),
-            lastTrainingDate = maxOfDates(lastTrainingDate, trainingDate),
-            totalSessions = totalSessions + 1,
-            totalTasks = totalTasks + outcome.taskCount,
-            totalCorrect = totalCorrect + outcome.correctCount,
-            updatedAt = now,
-            version = version + 1,
-        )
+        val updated =
+            copy(
+                totalXp = newTotalXp,
+                currentStreakDays = streak,
+                longestStreakDays = maxOf(longestStreakDays, streak),
+                lastTrainingDate = maxOfDates(lastTrainingDate, trainingDate),
+                totalSessions = totalSessions + 1,
+                totalTasks = totalTasks + outcome.taskCount,
+                totalCorrect = totalCorrect + outcome.correctCount,
+                updatedAt = now,
+                version = version + 1,
+            )
         return ProfileUpdate(
             profile = updated,
             awardedXp = xp,
@@ -68,36 +74,47 @@ internal data class LearnerProfile(
         )
     }
 
-    fun withDailyGoal(goalXp: Int, now: Instant): LearnerProfile {
-        if (goalXp !in MIN_DAILY_GOAL..MAX_DAILY_GOAL) {
+    fun withDailyGoal(
+        goalXp: Int,
+        now: Instant,
+    ): LearnerProfile {
+        if (goalXp !in LearnerProfileFactory.MIN_DAILY_GOAL..LearnerProfileFactory.MAX_DAILY_GOAL) {
             throw ValidationException(
-                "Дневная цель должна быть в диапазоне $MIN_DAILY_GOAL..$MAX_DAILY_GOAL опыта",
-                mapOf("dailyGoalXp" to goalXp),
+                "Дневная цель должна быть в диапазоне ${LearnerProfileFactory.MIN_DAILY_GOAL}..${LearnerProfileFactory.MAX_DAILY_GOAL} опыта",
+                mapOf(
+                    "dailyGoalXp" to goalXp,
+                ),
             )
         }
         return copy(dailyGoalXp = goalXp, updatedAt = now, version = version + 1)
     }
 
-    private fun maxOfDates(a: LocalDate?, b: LocalDate): LocalDate = if (a == null || b.isAfter(a)) b else a
+    private fun maxOfDates(
+        a: LocalDate?,
+        b: LocalDate,
+    ): LocalDate = if (a == null || b.isAfter(a)) b else a
+}
 
-    companion object {
-        const val DEFAULT_DAILY_GOAL = 100
-        const val MIN_DAILY_GOAL = 20
-        const val MAX_DAILY_GOAL = 5000
+internal object LearnerProfileFactory {
+    const val DEFAULT_DAILY_GOAL = 100
+    const val MIN_DAILY_GOAL = 20
+    const val MAX_DAILY_GOAL = 5000
 
-        fun createFor(userId: UserId, now: Instant) = LearnerProfile(
-            userId = userId,
-            totalXp = 0,
-            currentStreakDays = 0,
-            longestStreakDays = 0,
-            lastTrainingDate = null,
-            totalSessions = 0,
-            totalTasks = 0,
-            totalCorrect = 0,
-            dailyGoalXp = DEFAULT_DAILY_GOAL,
-            createdAt = now,
-            updatedAt = now,
-            version = 0,
-        )
-    }
+    fun createFor(
+        userId: UserId,
+        now: Instant,
+    ) = LearnerProfile(
+        userId = userId,
+        totalXp = 0,
+        currentStreakDays = 0,
+        longestStreakDays = 0,
+        lastTrainingDate = null,
+        totalSessions = 0,
+        totalTasks = 0,
+        totalCorrect = 0,
+        dailyGoalXp = DEFAULT_DAILY_GOAL,
+        createdAt = now,
+        updatedAt = now,
+        version = 0,
+    )
 }

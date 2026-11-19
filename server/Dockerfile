@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # --- Этап сборки: компилируем fat-jar внутри образа, чтобы сборка была воспроизводимой ---
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /workspace
@@ -6,14 +7,14 @@ WORKDIR /workspace
 COPY gradlew gradlew
 COPY gradle gradle
 COPY settings.gradle.kts build.gradle.kts gradle.properties ./
-RUN chmod +x gradlew && ./gradlew --no-daemon --version > /dev/null
+RUN --mount=type=cache,target=/root/.gradle chmod +x gradlew && ./gradlew --no-daemon --version > /dev/null
 
 COPY shared shared
 COPY modules modules
 COPY api api
 COPY bootstrap bootstrap
 
-RUN ./gradlew --no-daemon :bootstrap:bootJar -x test
+RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon :bootstrap:bootJar -x test
 
 # --- Этап запуска: только JRE и собранный jar ---
 FROM eclipse-temurin:21-jre-alpine

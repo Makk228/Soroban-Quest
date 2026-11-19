@@ -6,7 +6,7 @@ import com.sorobanquest.identity.internal.application.AccessTokenIssuer
 import com.sorobanquest.identity.internal.application.IssuedAccessToken
 import com.sorobanquest.identity.internal.domain.UserAccount
 import com.sorobanquest.shared.error.UnauthorizedException
-import com.sorobanquest.shared.model.UserId
+import com.sorobanquest.shared.model.UserIdFactory
 import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
@@ -24,32 +24,39 @@ internal class JwtAccessTokenIssuer(
     secret: String,
     private val issuer: String,
     private val accessTokenTtl: Duration,
-) : AccessTokenIssuer, AccessTokenVerifier {
-
+) : AccessTokenIssuer,
+    AccessTokenVerifier {
     private val key = Keys.hmacShaKeyFor(secret.toByteArray())
 
-    override fun issue(user: UserAccount, issuedAt: Instant): IssuedAccessToken {
+    override fun issue(
+        user: UserAccount,
+        issuedAt: Instant,
+    ): IssuedAccessToken {
         val expiresAt = issuedAt.plus(accessTokenTtl)
-        val token = Jwts.builder()
-            .issuer(issuer)
-            .subject(user.id.value.toString())
-            .claim("name", user.displayName)
-            .issuedAt(Date.from(issuedAt))
-            .expiration(Date.from(expiresAt))
-            .signWith(key)
-            .compact()
+        val token =
+            Jwts
+                .builder()
+                .issuer(issuer)
+                .subject(user.id.value.toString())
+                .claim("name", user.displayName)
+                .issuedAt(Date.from(issuedAt))
+                .expiration(Date.from(expiresAt))
+                .signWith(key)
+                .compact()
         return IssuedAccessToken(token, expiresAt)
     }
 
     override fun verify(accessToken: String): AuthenticatedUser {
         try {
-            val claims = Jwts.parser()
-                .verifyWith(key)
-                .requireIssuer(issuer)
-                .build()
-                .parseSignedClaims(accessToken)
-                .payload
-            val userId = UserId.parse(claims.subject)
+            val claims =
+                Jwts
+                    .parser()
+                    .verifyWith(key)
+                    .requireIssuer(issuer)
+                    .build()
+                    .parseSignedClaims(accessToken)
+                    .payload
+            val userId = UserIdFactory.parse(claims.subject)
             val displayName = claims.get("name", String::class.java) ?: ""
             return AuthenticatedUser(userId, displayName)
         } catch (e: ExpiredJwtException) {

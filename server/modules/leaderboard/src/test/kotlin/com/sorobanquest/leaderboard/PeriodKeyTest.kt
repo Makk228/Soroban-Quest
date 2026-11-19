@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 
 class PeriodKeyTest {
-
     @Test
     fun `ключ недели одинаков для всех дней одной ISO-недели`() {
         val monday = LocalDate.of(2026, 10, 19)

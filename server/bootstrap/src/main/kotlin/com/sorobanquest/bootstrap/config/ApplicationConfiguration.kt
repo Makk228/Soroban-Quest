@@ -20,7 +20,6 @@ import java.time.Clock
  */
 @Configuration(proxyBeanMethods = false)
 class ApplicationConfiguration {
-
     /** Часы как бин: в тестах подменяются на фиксированные. */
     @Bean
     fun clock(): Clock = Clock.systemUTC()
@@ -29,12 +28,10 @@ class ApplicationConfiguration {
     fun idGenerator(): IdGenerator = RandomIdGenerator
 
     @Bean
-    fun transactionRunner(transactionManager: PlatformTransactionManager): TransactionRunner =
-        SpringTransactionRunner(transactionManager)
+    fun transactionRunner(transactionManager: PlatformTransactionManager): TransactionRunner = SpringTransactionRunner(transactionManager)
 
     @Bean
-    fun domainEventPublisher(handlers: ObjectProvider<DomainEventHandler<*>>): DomainEventPublisher =
-        SynchronousDomainEventBus(handlers)
+    fun domainEventPublisher(handlers: ObjectProvider<DomainEventHandler<*>>): DomainEventPublisher = SynchronousDomainEventBus(handlers)
 
     @Bean
     fun namedParameterJdbcTemplate(dataSource: javax.sql.DataSource) = NamedParameterJdbcTemplate(dataSource)

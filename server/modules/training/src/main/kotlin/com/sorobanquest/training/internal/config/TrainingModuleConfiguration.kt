@@ -27,9 +27,9 @@ import java.time.Clock
 @ConfigurationProperties(prefix = "soroban.training")
 data class TrainingProperties(
     /** Сколько незавершённых тренировок пользователь может держать одновременно. */
-    val maxActiveSessions: Int = 5,
-    val minTaskCount: Int = 5,
-    val maxTaskCount: Int = 50,
+    val maxActiveSessions: Int,
+    val minTaskCount: Int,
+    val maxTaskCount: Int,
 )
 
 /**
@@ -39,7 +39,6 @@ data class TrainingProperties(
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(TrainingProperties::class)
 class TrainingModuleConfiguration {
-
     @Bean
     fun trainingService(
         jdbc: NamedParameterJdbcTemplate,
@@ -53,15 +52,16 @@ class TrainingModuleConfiguration {
         val chain = AddSubChainGenerator()
         val multiplication = MultiplicationGenerator()
         val division = DivisionGenerator()
-        val registry = TaskGeneratorRegistry(
-            listOf(
-                flash,
-                chain,
-                multiplication,
-                division,
-                MixedGenerator(listOf(flash, chain, multiplication, division)),
-            ),
-        )
+        val registry =
+            TaskGeneratorRegistry(
+                listOf(
+                    flash,
+                    chain,
+                    multiplication,
+                    division,
+                    MixedGenerator(listOf(flash, chain, multiplication, division)),
+                ),
+            )
         val secureRandom = SecureRandom()
         return TrainingServiceImpl(
             sessions = JdbcPracticeSessionRepository(jdbc),
@@ -72,11 +72,12 @@ class TrainingModuleConfiguration {
             clock = clock,
             ids = idGenerator,
             seeds = SeedGenerator { secureRandom.nextLong() },
-            settings = TrainingSettings(
-                maxActiveSessions = properties.maxActiveSessions,
-                minTaskCount = properties.minTaskCount,
-                maxTaskCount = properties.maxTaskCount,
-            ),
+            settings =
+                TrainingSettings(
+                    maxActiveSessions = properties.maxActiveSessions,
+                    minTaskCount = properties.minTaskCount,
+                    maxTaskCount = properties.maxTaskCount,
+                ),
         )
     }
 }

@@ -17,24 +17,23 @@ import java.util.UUID
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 class RequestIdFilter : OncePerRequestFilter() {
-
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
-        val requestId = request.getHeader(HEADER)?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
-        MDC.put(MDC_KEY, requestId)
-        response.setHeader(HEADER, requestId)
+        val requestId = request.getHeader(RequestIdFilterFactory.HEADER)?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+        MDC.put(RequestIdFilterFactory.MDC_KEY, requestId)
+        response.setHeader(RequestIdFilterFactory.HEADER, requestId)
         try {
             filterChain.doFilter(request, response)
         } finally {
-            MDC.remove(MDC_KEY)
+            MDC.remove(RequestIdFilterFactory.MDC_KEY)
         }
     }
+}
 
-    private companion object {
-        const val HEADER = "X-Request-Id"
-        const val MDC_KEY = "requestId"
-    }
+private object RequestIdFilterFactory {
+    const val HEADER = "X-Request-Id"
+    const val MDC_KEY = "requestId"
 }

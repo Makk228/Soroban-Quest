@@ -10,9 +10,13 @@ dependencies {
     implementation(project(":modules:leaderboard"))
 
     implementation(libs.spring.boot.starter.web)
-    implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.security)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.springdoc.openapi.webmvc)
     implementation(libs.kotlin.logging)
+}
+
+dependencies {
+    testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.mockk)
 }

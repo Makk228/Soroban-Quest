@@ -1,8 +1,8 @@
 package com.sorobanquest.training
 
 import com.sorobanquest.training.api.DrillKind
-import com.sorobanquest.training.internal.domain.Difficulty
-import com.sorobanquest.training.internal.domain.DifficultyProfile
+import com.sorobanquest.training.internal.domain.DifficultyFactory
+import com.sorobanquest.training.internal.domain.DifficultyProfileFactory
 import com.sorobanquest.training.internal.domain.Operator
 import com.sorobanquest.training.internal.domain.TaskPrompt
 import com.sorobanquest.training.internal.domain.generator.AddSubChainGenerator
@@ -23,13 +23,12 @@ import org.junit.jupiter.params.provider.ValueSource
  * и соблюдение правил ментальной арифметики.
  */
 class TaskGeneratorsTest {
-
     private val registry = newRegistry()
 
     @ParameterizedTest
     @EnumSource(DrillKind::class)
     fun `одинаковые seed и номер задания дают одинаковое задание`(kind: DrillKind) {
-        val difficulty = Difficulty.of(5)
+        val difficulty = DifficultyFactory.of(5)
         repeat(20) { index ->
             val first = registry.generate(kind, index, difficulty, seed = 42L)
             val second = registry.generate(kind, index, difficulty, seed = 42L)
@@ -39,7 +38,7 @@ class TaskGeneratorsTest {
 
     @Test
     fun `разные seed дают разные последовательности`() {
-        val difficulty = Difficulty.of(5)
+        val difficulty = DifficultyFactory.of(5)
         val first = (0 until 10).map { registry.generate(DrillKind.FLASH_ANZAN, it, difficulty, seed = 1L).answer }
         val second = (0 until 10).map { registry.generate(DrillKind.FLASH_ANZAN, it, difficulty, seed = 2L).answer }
         assertThat(first).isNotEqualTo(second)
@@ -48,8 +47,8 @@ class TaskGeneratorsTest {
     @ParameterizedTest
     @ValueSource(ints = [1, 3, 5, 7, 10])
     fun `флеш-анзан - ответ равен сумме показанных чисел`(level: Int) {
-        val difficulty = Difficulty.of(level)
-        val profile = DifficultyProfile.of(difficulty)
+        val difficulty = DifficultyFactory.of(level)
+        val profile = DifficultyProfileFactory.of(difficulty)
         repeat(30) { index ->
             val task = registry.generate(DrillKind.FLASH_ANZAN, index, difficulty, seed = 7L)
             val prompt = task.prompt as TaskPrompt.Sequence
@@ -62,25 +61,24 @@ class TaskGeneratorsTest {
     @ParameterizedTest
     @ValueSource(ints = [1, 4, 7, 10])
     fun `цепочка плюс-минус - промежуточная сумма никогда не уходит в минус`(level: Int) {
-        val difficulty = Difficulty.of(level)
+        val difficulty = DifficultyFactory.of(level)
         repeat(50) { index ->
             val task = registry.generate(DrillKind.ADD_SUB_CHAIN, index, difficulty, seed = 11L)
             val prompt = task.prompt as TaskPrompt.Sequence
-            var running = 0L
-            prompt.numbers.forEach { term ->
-                running += term
+            val partialSums = prompt.numbers.runningFold(0L) { sum, term -> sum + term }.drop(1)
+            partialSums.forEach { running ->
                 assertThat(running)
                     .describedAs("промежуточный результат цепочки %s", prompt.numbers)
                     .isGreaterThanOrEqualTo(1)
             }
-            assertThat(task.answer).isEqualTo(running)
+            assertThat(task.answer).isEqualTo(partialSums.last())
         }
     }
 
     @ParameterizedTest
     @ValueSource(ints = [1, 5, 10])
     fun `умножение - ответ равен произведению операндов`(level: Int) {
-        val difficulty = Difficulty.of(level)
+        val difficulty = DifficultyFactory.of(level)
         repeat(30) { index ->
             val task = registry.generate(DrillKind.MULTIPLICATION, index, difficulty, seed = 3L)
             val prompt = task.prompt as TaskPrompt.Binary
@@ -92,7 +90,7 @@ class TaskGeneratorsTest {
     @ParameterizedTest
     @ValueSource(ints = [1, 5, 10])
     fun `деление всегда выполняется нацело`(level: Int) {
-        val difficulty = Difficulty.of(level)
+        val difficulty = DifficultyFactory.of(level)
         repeat(30) { index ->
             val task = registry.generate(DrillKind.DIVISION, index, difficulty, seed = 5L)
             val prompt = task.prompt as TaskPrompt.Binary
@@ -105,7 +103,7 @@ class TaskGeneratorsTest {
 
     @Test
     fun `смешанный режим выдаёт задания разных видов`() {
-        val difficulty = Difficulty.of(6)
+        val difficulty = DifficultyFactory.of(6)
         val kinds = (0 until 40).map { registry.generate(DrillKind.MIXED, it, difficulty, seed = 99L).kind }.toSet()
         assertThat(kinds).hasSizeGreaterThan(1)
         assertThat(kinds).doesNotContain(DrillKind.MIXED)
@@ -113,8 +111,8 @@ class TaskGeneratorsTest {
 
     @Test
     fun `сложность влияет на разрядность и количество слагаемых`() {
-        val easy = DifficultyProfile.of(Difficulty.of(1))
-        val hard = DifficultyProfile.of(Difficulty.of(10))
+        val easy = DifficultyProfileFactory.of(DifficultyFactory.of(1))
+        val hard = DifficultyProfileFactory.of(DifficultyFactory.of(10))
         assertThat(hard.digits).isGreaterThan(easy.digits)
         assertThat(hard.terms).isGreaterThan(easy.terms)
         assertThat(hard.flashIntervalMs).isLessThan(easy.flashIntervalMs)

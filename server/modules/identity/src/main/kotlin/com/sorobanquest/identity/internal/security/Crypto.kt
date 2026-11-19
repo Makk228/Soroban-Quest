@@ -8,12 +8,17 @@ import java.security.SecureRandom
 import java.util.Base64
 
 /** BCrypt-реализация хеширования паролей. */
-internal class BcryptPasswordHasher(strength: Int) : PasswordHasher {
+internal class BcryptPasswordHasher(
+    strength: Int,
+) : PasswordHasher {
     private val encoder = BCryptPasswordEncoder(strength)
 
     override fun hash(rawPassword: String): String = encoder.encode(rawPassword)
 
-    override fun matches(rawPassword: String, hash: String): Boolean = encoder.matches(rawPassword, hash)
+    override fun matches(
+        rawPassword: String,
+        hash: String,
+    ): Boolean = encoder.matches(rawPassword, hash)
 }
 
 /**

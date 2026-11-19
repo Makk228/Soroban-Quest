@@ -21,5 +21,6 @@ fun interface DomainEventPublisher {
  */
 interface DomainEventHandler<E : DomainEvent> {
     val eventType: Class<E>
+
     fun handle(event: E)
 }

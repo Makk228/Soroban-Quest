@@ -1,6 +1,6 @@
 package com.sorobanquest.progression
 
-import com.sorobanquest.progression.internal.domain.LearnerProfile
+import com.sorobanquest.progression.internal.domain.LearnerProfileFactory
 import com.sorobanquest.progression.internal.domain.SessionOutcome
 import com.sorobanquest.shared.error.ValidationException
 import com.sorobanquest.shared.model.UserId
@@ -12,19 +12,19 @@ import java.time.LocalDate
 import java.util.UUID
 
 class LearnerProfileTest {
-
     private val now = Instant.parse("2026-10-22T12:00:00Z")
     private val today = LocalDate.of(2026, 10, 22)
-    private val profile = LearnerProfile.createFor(UserId(UUID.randomUUID()), now)
+    private val profile = LearnerProfileFactory.createFor(UserId(UUID.randomUUID()), now)
 
-    private val outcome = SessionOutcome(
-        difficulty = 5,
-        taskCount = 10,
-        correctCount = 9,
-        score = 500,
-        bestCombo = 6,
-        totalTimeMs = 20_000,
-    )
+    private val outcome =
+        SessionOutcome(
+            difficulty = 5,
+            taskCount = 10,
+            correctCount = 9,
+            score = 500,
+            bestCombo = 6,
+            totalTimeMs = 20_000,
+        )
 
     @Test
     fun `первая тренировка начинает серию и накопительную статистику`() {
@@ -60,10 +60,10 @@ class LearnerProfileTest {
 
     @Test
     fun `пропуск дня обнуляет серию, но рекорд сохраняется`() {
-        var current = profile
-        repeat(5) { day ->
-            current = current.applySession(outcome, today.plusDays(day.toLong()), now).profile
-        }
+        val current =
+            (0 until 5).fold(profile) { current, day ->
+                current.applySession(outcome, today.plusDays(day.toLong()), now).profile
+            }
         assertThat(current.currentStreakDays).isEqualTo(5)
 
         val afterGap = current.applySession(outcome, today.plusDays(10), now).profile
@@ -74,13 +74,11 @@ class LearnerProfileTest {
 
     @Test
     fun `повышение уровня фиксируется в результате применения`() {
-        var current = profile
-        var levelUps = 0
-        repeat(10) {
-            val update = current.applySession(outcome, today, now)
-            if (update.levelUp) levelUps++
-            current = update.profile
-        }
+        val (current, levelUps) =
+            (0 until 10).fold(profile to 0) { (current, levelUps), _ ->
+                val update = current.applySession(outcome, today, now)
+                update.profile to (levelUps + if (update.levelUp) 1 else 0)
+            }
 
         assertThat(current.level).isGreaterThan(1)
         // одна тренировка может поднять сразу несколько уровней,

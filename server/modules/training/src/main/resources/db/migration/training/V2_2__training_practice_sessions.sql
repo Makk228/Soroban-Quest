@@ -1,0 +1,21 @@
+create table training.practice_sessions (
+    id                uuid        primary key,
+    user_id           uuid        not null,
+    drill_kind        varchar(32) not null,
+    difficulty        smallint    not null check (difficulty between 1 and 10),
+    seed              bigint      not null,
+    task_count        smallint    not null check (task_count > 0),
+    generator_version smallint    not null,
+    status            varchar(16) not null check (status in ('IN_PROGRESS', 'COMPLETED', 'ABANDONED')),
+    answered_count    smallint    not null check (answered_count >= 0),
+    correct_count     smallint    not null check (correct_count >= 0),
+    current_combo     smallint    not null,
+    best_combo        smallint    not null,
+    score             integer     not null,
+    total_time_ms     bigint      not null,
+    started_at        timestamptz not null,
+    completed_at      timestamptz,
+    version           bigint      not null,
+    constraint practice_sessions_answered_within_tasks check (answered_count <= task_count),
+    constraint practice_sessions_correct_within_answered check (correct_count <= answered_count)
+);

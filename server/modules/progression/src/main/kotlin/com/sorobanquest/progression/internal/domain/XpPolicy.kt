@@ -34,7 +34,10 @@ internal object XpPolicy {
     const val STREAK_BONUS_PER_DAY = 0.05
     const val MAX_STREAK_BONUS = 0.5
 
-    fun xpFor(outcome: SessionOutcome, streakDays: Int): Int {
+    fun xpFor(
+        outcome: SessionOutcome,
+        streakDays: Int,
+    ): Int {
         if (outcome.correctCount == 0) return 0
         val base = outcome.score * SCORE_TO_XP
         val accuracyMultiplier = if (outcome.accuracy >= ACCURACY_BONUS_THRESHOLD) 1 + ACCURACY_BONUS else 1.0

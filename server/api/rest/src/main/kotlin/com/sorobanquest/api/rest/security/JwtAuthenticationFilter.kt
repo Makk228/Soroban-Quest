@@ -24,26 +24,26 @@ class JwtAuthenticationFilter(
     private val verifier: AccessTokenVerifier,
     private val objectMapper: ObjectMapper,
 ) : OncePerRequestFilter() {
-
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
         val header = request.getHeader(HttpHeaders.AUTHORIZATION)
-        if (header == null || !header.startsWith(BEARER_PREFIX)) {
+        if (header == null || !header.startsWith(JwtAuthenticationFilterFactory.BEARER_PREFIX)) {
             filterChain.doFilter(request, response)
             return
         }
 
-        val token = header.removePrefix(BEARER_PREFIX).trim()
+        val token = header.removePrefix(JwtAuthenticationFilterFactory.BEARER_PREFIX).trim()
         try {
             val user = verifier.verify(token)
-            val authentication = UsernamePasswordAuthenticationToken(
-                user,
-                null,
-                listOf(SimpleGrantedAuthority("ROLE_USER")),
-            )
+            val authentication =
+                UsernamePasswordAuthenticationToken(
+                    user,
+                    null,
+                    listOf(SimpleGrantedAuthority("ROLE_USER")),
+                )
             SecurityContextHolder.getContext().authentication = authentication
         } catch (e: AppException) {
             SecurityContextHolder.clearContext()
@@ -53,20 +53,25 @@ class JwtAuthenticationFilter(
         filterChain.doFilter(request, response)
     }
 
-    private fun writeProblem(request: HttpServletRequest, response: HttpServletResponse, detail: String) {
-        val problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, detail).apply {
-            title = HttpStatus.UNAUTHORIZED.reasonPhrase
-            type = URI.create("https://sorobanquest.dev/errors/unauthorized")
-            instance = URI.create(request.requestURI)
-            setProperty("code", "UNAUTHORIZED")
-        }
+    private fun writeProblem(
+        request: HttpServletRequest,
+        response: HttpServletResponse,
+        detail: String,
+    ) {
+        val problem =
+            ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, detail).apply {
+                title = HttpStatus.UNAUTHORIZED.reasonPhrase
+                type = URI.create("https://sorobanquest.dev/errors/unauthorized")
+                instance = URI.create(request.requestURI)
+                setProperty("code", "UNAUTHORIZED")
+            }
         response.status = HttpStatus.UNAUTHORIZED.value()
         response.contentType = MediaType.APPLICATION_PROBLEM_JSON_VALUE
         response.characterEncoding = Charsets.UTF_8.name()
         objectMapper.writeValue(response.outputStream, problem)
     }
+}
 
-    private companion object {
-        const val BEARER_PREFIX = "Bearer "
-    }
+private object JwtAuthenticationFilterFactory {
+    const val BEARER_PREFIX = "Bearer "
 }

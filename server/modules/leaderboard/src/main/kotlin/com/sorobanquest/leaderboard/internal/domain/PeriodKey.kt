@@ -11,10 +11,14 @@ import java.time.temporal.WeekFields
 internal object PeriodKey {
     const val ALL_TIME_KEY = "ALL"
 
-    fun of(period: LeaderboardPeriod, date: LocalDate): String = when (period) {
-        LeaderboardPeriod.ALL_TIME -> ALL_TIME_KEY
-        LeaderboardPeriod.WEEKLY -> weekKey(date)
-    }
+    fun of(
+        period: LeaderboardPeriod,
+        date: LocalDate,
+    ): String =
+        when (period) {
+            LeaderboardPeriod.ALL_TIME -> ALL_TIME_KEY
+            LeaderboardPeriod.WEEKLY -> weekKey(date)
+        }
 
     fun weekKey(date: LocalDate): String {
         val fields = WeekFields.ISO

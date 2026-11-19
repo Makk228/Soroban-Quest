@@ -25,9 +25,11 @@ private val log = KotlinLogging.logger {}
  */
 @RestControllerAdvice
 class GlobalExceptionHandler {
-
     @ExceptionHandler(AppException::class)
-    fun handleAppException(exception: AppException, request: HttpServletRequest): ProblemDetail {
+    fun handleAppException(
+        exception: AppException,
+        request: HttpServletRequest,
+    ): ProblemDetail {
         val status = exception.code.toHttpStatus()
         if (status.is5xxServerError) {
             log.error(exception) { "Ошибка обработки ${request.method} ${request.requestURI}" }
@@ -40,10 +42,14 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
-    fun handleValidation(exception: MethodArgumentNotValidException, request: HttpServletRequest): ProblemDetail {
-        val fieldErrors = exception.bindingResult.fieldErrors.associate {
-            it.field to (it.defaultMessage ?: "некорректное значение")
-        }
+    fun handleValidation(
+        exception: MethodArgumentNotValidException,
+        request: HttpServletRequest,
+    ): ProblemDetail {
+        val fieldErrors =
+            exception.bindingResult.fieldErrors.associate {
+                it.field to (it.defaultMessage ?: "некорректное значение")
+            }
         return problem(
             status = HttpStatus.BAD_REQUEST,
             code = ErrorCode.VALIDATION_FAILED.name,
@@ -53,11 +59,16 @@ class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun handleUnreadable(exception: HttpMessageNotReadableException, request: HttpServletRequest): ProblemDetail =
-        problem(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED.name, "Некорректное тело запроса", request)
+    fun handleUnreadable(
+        exception: HttpMessageNotReadableException,
+        request: HttpServletRequest,
+    ): ProblemDetail = problem(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED.name, "Некорректное тело запроса", request)
 
     @ExceptionHandler(MethodArgumentTypeMismatchException::class, MissingServletRequestParameterException::class)
-    fun handleBadParameter(exception: Exception, request: HttpServletRequest): ProblemDetail =
+    fun handleBadParameter(
+        exception: Exception,
+        request: HttpServletRequest,
+    ): ProblemDetail =
         problem(
             HttpStatus.BAD_REQUEST,
             ErrorCode.VALIDATION_FAILED.name,
@@ -65,8 +76,25 @@ class GlobalExceptionHandler {
             request,
         )
 
+    @ExceptionHandler(
+        org.springframework.web.HttpRequestMethodNotSupportedException::class,
+        org.springframework.web.HttpMediaTypeNotSupportedException::class,
+        org.springframework.web.HttpMediaTypeNotAcceptableException::class,
+        org.springframework.web.servlet.resource.NoResourceFoundException::class,
+    )
+    fun handleHttpFailure(
+        exception: Exception,
+        request: HttpServletRequest,
+    ): ProblemDetail {
+        val status = HttpStatus.valueOf((exception as org.springframework.web.ErrorResponse).statusCode.value())
+        return problem(status, status.name, status.reasonPhrase, request)
+    }
+
     @ExceptionHandler(Exception::class)
-    fun handleUnexpected(exception: Exception, request: HttpServletRequest): ProblemDetail {
+    fun handleUnexpected(
+        exception: Exception,
+        request: HttpServletRequest,
+    ): ProblemDetail {
         log.error(exception) { "Непредвиденная ошибка при обработке ${request.method} ${request.requestURI}" }
         return problem(
             HttpStatus.INTERNAL_SERVER_ERROR,
@@ -76,7 +104,12 @@ class GlobalExceptionHandler {
         )
     }
 
-    private fun problem(status: HttpStatus, code: String, detail: String, request: HttpServletRequest): ProblemDetail =
+    private fun problem(
+        status: HttpStatus,
+        code: String,
+        detail: String,
+        request: HttpServletRequest,
+    ): ProblemDetail =
         ProblemDetail.forStatusAndDetail(status, detail).apply {
             title = status.reasonPhrase
             type = URI.create("https://sorobanquest.dev/errors/${code.lowercase()}")
@@ -85,13 +118,14 @@ class GlobalExceptionHandler {
         }
 }
 
-internal fun ErrorCode.toHttpStatus(): HttpStatus = when (this) {
-    ErrorCode.VALIDATION_FAILED -> HttpStatus.BAD_REQUEST
-    ErrorCode.UNAUTHORIZED -> HttpStatus.UNAUTHORIZED
-    ErrorCode.FORBIDDEN -> HttpStatus.FORBIDDEN
-    ErrorCode.NOT_FOUND -> HttpStatus.NOT_FOUND
-    ErrorCode.CONFLICT -> HttpStatus.CONFLICT
-    // 422: запрос синтаксически корректен, но нарушает правило предметной области
-    ErrorCode.RULE_VIOLATION -> HttpStatus.UNPROCESSABLE_ENTITY
-    ErrorCode.RATE_LIMITED -> HttpStatus.TOO_MANY_REQUESTS
-}
+internal fun ErrorCode.toHttpStatus(): HttpStatus =
+    when (this) {
+        ErrorCode.VALIDATION_FAILED -> HttpStatus.BAD_REQUEST
+        ErrorCode.UNAUTHORIZED -> HttpStatus.UNAUTHORIZED
+        ErrorCode.FORBIDDEN -> HttpStatus.FORBIDDEN
+        ErrorCode.NOT_FOUND -> HttpStatus.NOT_FOUND
+        ErrorCode.CONFLICT -> HttpStatus.CONFLICT
+        // 422: запрос синтаксически корректен, но нарушает правило предметной области
+        ErrorCode.RULE_VIOLATION -> HttpStatus.UNPROCESSABLE_ENTITY
+        ErrorCode.RATE_LIMITED -> HttpStatus.TOO_MANY_REQUESTS
+    }

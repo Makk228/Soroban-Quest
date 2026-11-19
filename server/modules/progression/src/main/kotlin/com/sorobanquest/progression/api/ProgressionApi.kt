@@ -61,9 +61,15 @@ interface ProgressionService {
 
     fun skills(userId: UserId): List<SkillMasteryView>
 
-    fun recentDays(userId: UserId, days: Int): List<DailyProgressView>
+    fun recentDays(
+        userId: UserId,
+        days: Int,
+    ): List<DailyProgressView>
 
-    fun updateDailyGoal(userId: UserId, dailyGoalXp: Int): LearnerProfileView
+    fun updateDailyGoal(
+        userId: UserId,
+        dailyGoalXp: Int,
+    ): LearnerProfileView
 }
 
 /**

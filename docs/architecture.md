@@ -56,16 +56,16 @@ bootstrap ──▶ всё (и только он знает про Spring-инф
 ```
 api/                  контракт модуля: интерфейсы сервисов, команды, представления, события
 internal/domain/      чистый Kotlin: агрегаты, политики, инварианты
-internal/application/ сценарии: оркестрация домена, портов хранения и публикации событий
-internal/persistence/ адаптеры к PostgreSQL (JDBC), реализуют порты application-слоя
+internal/application/ сценарии: оркестрация домена, JDBC-репозиториев и публикации событий
+internal/persistence/ конкретные репозитории PostgreSQL (JDBC)
 internal/config/      @Configuration: сборка объектного графа модуля
 ```
 
 Правила:
 
 * **домен ничего не импортирует** из Spring, JDBC и HTTP — только `shared` и stdlib;
-* **application** зависит от портов (`PracticeSessionRepository`, `TransactionRunner`,
-  `DomainEventPublisher`), а не от их реализаций;
+* **application** зависит от конкретных JDBC-репозиториев и общих контрактов
+  `TransactionRunner` и `DomainEventPublisher`;
 * **persistence** — единственное место с SQL;
 * **config** — единственное место со Spring-аннотациями внутри модуля.
 
@@ -121,7 +121,7 @@ object DirectTransactionRunner : TransactionRunner {
 
 ### От базы данных
 
-Application-слой работает с портами репозиториев. SQL сосредоточен в
+Application-слой использует конкретные JDBC-репозитории без отдельных интерфейсов хранения. SQL сосредоточен в
 `internal/persistence`. Используется JDBC, а не ORM: доменные классы остаются
 без аннотаций, а блокировки и `on conflict` видны явно.
 

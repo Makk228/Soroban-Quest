@@ -142,11 +142,23 @@ interface TrainingService {
 
     fun submitAnswer(command: SubmitAnswerCommand): AnswerResult
 
-    fun getSession(userId: UserId, sessionId: SessionId): SessionView
+    fun getSession(
+        userId: UserId,
+        sessionId: SessionId,
+    ): SessionView
 
-    fun listAnswers(userId: UserId, sessionId: SessionId): List<AnswerRecord>
+    fun listAnswers(
+        userId: UserId,
+        sessionId: SessionId,
+    ): List<AnswerRecord>
 
-    fun abandonSession(userId: UserId, sessionId: SessionId): SessionView
+    fun abandonSession(
+        userId: UserId,
+        sessionId: SessionId,
+    ): SessionView
 
-    fun history(userId: UserId, pageRequest: PageRequest): Page<SessionSummary>
+    fun history(
+        userId: UserId,
+        pageRequest: PageRequest,
+    ): Page<SessionSummary>
 }

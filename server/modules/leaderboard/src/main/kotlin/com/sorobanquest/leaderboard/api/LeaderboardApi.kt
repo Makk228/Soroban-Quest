@@ -30,5 +30,9 @@ data class LeaderboardView(
 )
 
 interface LeaderboardService {
-    fun top(period: LeaderboardPeriod, limit: Int, viewer: UserId?): LeaderboardView
+    fun top(
+        period: LeaderboardPeriod,
+        limit: Int,
+        viewer: UserId?,
+    ): LeaderboardView
 }

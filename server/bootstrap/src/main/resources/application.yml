@@ -14,6 +14,8 @@ spring:
 
   # Миграции лежат внутри модулей: каждый модуль владеет своей схемой в БД.
   flyway:
+    postgresql:
+      transactional-lock: false
     enabled: true
     locations:
       - classpath:db/migration/identity
@@ -22,6 +24,9 @@ spring:
       - classpath:db/migration/leaderboard
 
   jackson:
+    deserialization:
+      fail-on-null-for-primitives: true
+      fail-on-missing-creator-properties: true
     serialization:
       write-dates-as-timestamps: false
     default-property-inclusion: non_null

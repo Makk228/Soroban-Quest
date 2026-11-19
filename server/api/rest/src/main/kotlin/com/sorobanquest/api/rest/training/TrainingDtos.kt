@@ -12,37 +12,20 @@ import com.sorobanquest.training.api.SessionView
 import com.sorobanquest.training.api.TaskPromptView
 import com.sorobanquest.training.api.TaskView
 import io.swagger.v3.oas.annotations.media.Schema
-import jakarta.validation.constraints.Max
-import jakarta.validation.constraints.Min
-import jakarta.validation.constraints.NotNull
 import java.time.Instant
 
 @Schema(description = "Запрос на старт тренировки")
 data class StartSessionRequest(
-    @field:NotNull(message = "Укажите вид тренировки")
-    val kind: DrillKind?,
-
-    @field:NotNull(message = "Укажите сложность")
-    @field:Min(1) @field:Max(10)
-    val difficulty: Int?,
-
-    @field:NotNull(message = "Укажите количество заданий")
-    @field:Min(5) @field:Max(50)
-    val taskCount: Int?,
+    val kind: DrillKind,
+    val difficulty: Int,
+    val taskCount: Int,
 )
 
 @Schema(description = "Ответ на задание")
 data class SubmitAnswerRequest(
-    @field:NotNull(message = "Укажите номер задания")
-    @field:Min(0)
-    val taskIndex: Int?,
-
-    @field:NotNull(message = "Укажите ответ")
-    val answer: Long?,
-
-    @field:NotNull(message = "Укажите время решения в миллисекундах")
-    @field:Min(1) @field:Max(600_000)
-    val elapsedMs: Long?,
+    val taskIndex: Int,
+    val answer: Long,
+    val elapsedMs: Long,
 )
 
 /** Условие задания; тип указывается полем `type`, чтобы клиенту было удобно разбирать JSON. */
@@ -52,16 +35,16 @@ data class SubmitAnswerRequest(
     JsonSubTypes.Type(value = PromptResponse.Binary::class, name = "BINARY"),
 )
 sealed interface PromptResponse {
-    data class Sequence(val numbers: List<Int>, val flashIntervalMs: Int) : PromptResponse
+    data class Sequence(
+        val numbers: List<Int>,
+        val flashIntervalMs: Int,
+    ) : PromptResponse
 
-    data class Binary(val left: Int, val right: Int, val operator: String) : PromptResponse
-
-    companion object {
-        fun of(prompt: TaskPromptView): PromptResponse = when (prompt) {
-            is TaskPromptView.Sequence -> Sequence(prompt.numbers, prompt.flashIntervalMs)
-            is TaskPromptView.Binary -> Binary(prompt.left, prompt.right, prompt.operator)
-        }
-    }
+    data class Binary(
+        val left: Int,
+        val right: Int,
+        val operator: String,
+    ) : PromptResponse
 }
 
 data class TaskResponse(
@@ -69,11 +52,7 @@ data class TaskResponse(
     val kind: DrillKind,
     val prompt: PromptResponse,
     val timeLimitMs: Long,
-) {
-    companion object {
-        fun of(task: TaskView) = TaskResponse(task.index, task.kind, PromptResponse.of(task.prompt), task.timeLimitMs)
-    }
-}
+)
 
 data class SessionResponse(
     val sessionId: String,
@@ -91,27 +70,7 @@ data class SessionResponse(
     val startedAt: Instant,
     val completedAt: Instant?,
     val currentTask: TaskResponse?,
-) {
-    companion object {
-        fun of(view: SessionView) = SessionResponse(
-            sessionId = view.sessionId.toString(),
-            kind = view.kind,
-            difficulty = view.difficulty,
-            status = view.status,
-            taskCount = view.taskCount,
-            answeredCount = view.answeredCount,
-            correctCount = view.correctCount,
-            accuracy = view.accuracy,
-            score = view.score,
-            currentCombo = view.currentCombo,
-            bestCombo = view.bestCombo,
-            totalTimeMs = view.totalTimeMs,
-            startedAt = view.startedAt,
-            completedAt = view.completedAt,
-            currentTask = view.currentTask?.let(TaskResponse::of),
-        )
-    }
-}
+)
 
 data class AnswerResponse(
     val correct: Boolean,
@@ -122,20 +81,7 @@ data class AnswerResponse(
     val duplicate: Boolean,
     val session: SessionResponse,
     val nextTask: TaskResponse?,
-) {
-    companion object {
-        fun of(result: AnswerResult) = AnswerResponse(
-            correct = result.correct,
-            givenAnswer = result.givenAnswer,
-            expectedAnswer = result.expectedAnswer,
-            awardedPoints = result.awardedPoints,
-            combo = result.combo,
-            duplicate = result.duplicate,
-            session = SessionResponse.of(result.session),
-            nextTask = result.nextTask?.let(TaskResponse::of),
-        )
-    }
-}
+)
 
 data class SessionSummaryResponse(
     val sessionId: String,
@@ -151,9 +97,77 @@ data class SessionSummaryResponse(
     val totalTimeMs: Long,
     val startedAt: Instant,
     val completedAt: Instant?,
-) {
-    companion object {
-        fun of(summary: SessionSummary) = SessionSummaryResponse(
+)
+
+data class AnswerRecordResponse(
+    val taskIndex: Int,
+    val givenAnswer: Long,
+    val expectedAnswer: Long,
+    val correct: Boolean,
+    val elapsedMs: Int,
+    val awardedPoints: Int,
+    val answeredAt: Instant,
+)
+
+data class DrillResponse(
+    val kind: DrillKind,
+    val title: String,
+    val description: String,
+    val minDifficulty: Int,
+    val maxDifficulty: Int,
+    val recommendedTaskCount: Int,
+)
+
+object PromptResponseFactory {
+    fun of(prompt: TaskPromptView): PromptResponse =
+        when (prompt) {
+            is TaskPromptView.Sequence -> PromptResponse.Sequence(prompt.numbers, prompt.flashIntervalMs)
+            is TaskPromptView.Binary -> PromptResponse.Binary(prompt.left, prompt.right, prompt.operator)
+        }
+}
+
+object TaskResponseFactory {
+    fun of(task: TaskView) = TaskResponse(task.index, task.kind, PromptResponseFactory.of(task.prompt), task.timeLimitMs)
+}
+
+object SessionResponseFactory {
+    fun of(view: SessionView) =
+        SessionResponse(
+            sessionId = view.sessionId.toString(),
+            kind = view.kind,
+            difficulty = view.difficulty,
+            status = view.status,
+            taskCount = view.taskCount,
+            answeredCount = view.answeredCount,
+            correctCount = view.correctCount,
+            accuracy = view.accuracy,
+            score = view.score,
+            currentCombo = view.currentCombo,
+            bestCombo = view.bestCombo,
+            totalTimeMs = view.totalTimeMs,
+            startedAt = view.startedAt,
+            completedAt = view.completedAt,
+            currentTask = view.currentTask?.let(TaskResponseFactory::of),
+        )
+}
+
+object AnswerResponseFactory {
+    fun of(result: AnswerResult) =
+        AnswerResponse(
+            correct = result.correct,
+            givenAnswer = result.givenAnswer,
+            expectedAnswer = result.expectedAnswer,
+            awardedPoints = result.awardedPoints,
+            combo = result.combo,
+            duplicate = result.duplicate,
+            session = SessionResponseFactory.of(result.session),
+            nextTask = result.nextTask?.let(TaskResponseFactory::of),
+        )
+}
+
+object SessionSummaryResponseFactory {
+    fun of(summary: SessionSummary) =
+        SessionSummaryResponse(
             sessionId = summary.sessionId.toString(),
             kind = summary.kind,
             difficulty = summary.difficulty,
@@ -168,20 +182,11 @@ data class SessionSummaryResponse(
             startedAt = summary.startedAt,
             completedAt = summary.completedAt,
         )
-    }
 }
 
-data class AnswerRecordResponse(
-    val taskIndex: Int,
-    val givenAnswer: Long,
-    val expectedAnswer: Long,
-    val correct: Boolean,
-    val elapsedMs: Int,
-    val awardedPoints: Int,
-    val answeredAt: Instant,
-) {
-    companion object {
-        fun of(record: AnswerRecord) = AnswerRecordResponse(
+object AnswerRecordResponseFactory {
+    fun of(record: AnswerRecord) =
+        AnswerRecordResponse(
             taskIndex = record.taskIndex,
             givenAnswer = record.givenAnswer,
             expectedAnswer = record.expectedAnswer,
@@ -190,19 +195,11 @@ data class AnswerRecordResponse(
             awardedPoints = record.awardedPoints,
             answeredAt = record.answeredAt,
         )
-    }
 }
 
-data class DrillResponse(
-    val kind: DrillKind,
-    val title: String,
-    val description: String,
-    val minDifficulty: Int,
-    val maxDifficulty: Int,
-    val recommendedTaskCount: Int,
-) {
-    companion object {
-        fun of(descriptor: DrillDescriptor) = DrillResponse(
+object DrillResponseFactory {
+    fun of(descriptor: DrillDescriptor) =
+        DrillResponse(
             kind = descriptor.kind,
             title = descriptor.title,
             description = descriptor.description,
@@ -210,5 +207,4 @@ data class DrillResponse(
             maxDifficulty = descriptor.maxDifficulty,
             recommendedTaskCount = descriptor.recommendedTaskCount,
         )
-    }
 }

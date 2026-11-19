@@ -7,7 +7,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 
 class LevelCurveTest {
-
     @ParameterizedTest(name = "{0} опыта -> уровень {1}")
     @CsvSource(
         "0, 1",
@@ -18,7 +17,10 @@ class LevelCurveTest {
         "600, 4",
         "1000, 5",
     )
-    fun `уровень считается по накопленному опыту`(totalXp: Long, expectedLevel: Int) {
+    fun `уровень считается по накопленному опыту`(
+        totalXp: Long,
+        expectedLevel: Int,
+    ) {
         assertThat(LevelCurve.levelFor(totalXp)).isEqualTo(expectedLevel)
     }
 
@@ -34,11 +36,8 @@ class LevelCurveTest {
 
     @Test
     fun `кривая монотонна - больше опыта никогда не даёт меньший уровень`() {
-        var previous = 1
-        (0..20_000L step 137).forEach { xp ->
-            val level = LevelCurve.levelFor(xp)
+        (0..20_000L step 137).map(LevelCurve::levelFor).zipWithNext().forEach { (previous, level) ->
             assertThat(level).isGreaterThanOrEqualTo(previous)
-            previous = level
         }
     }
 

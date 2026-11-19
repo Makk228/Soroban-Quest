@@ -6,6 +6,7 @@ import com.sorobanquest.leaderboard.api.LeaderboardPeriod
 import com.sorobanquest.leaderboard.api.LeaderboardService
 import com.sorobanquest.leaderboard.api.LeaderboardView
 import com.sorobanquest.leaderboard.internal.domain.PeriodKey
+import com.sorobanquest.leaderboard.internal.persistence.JdbcLeaderboardRepository
 import com.sorobanquest.progression.api.XpAwarded
 import com.sorobanquest.shared.error.ValidationException
 import com.sorobanquest.shared.event.DomainEventHandler
@@ -20,34 +21,37 @@ private val log = KotlinLogging.logger {}
 internal const val MAX_LEADERBOARD_LIMIT = 100
 
 internal class LeaderboardServiceImpl(
-    private val repository: LeaderboardRepository,
+    private val repository: JdbcLeaderboardRepository,
     private val users: UserDirectory,
     private val clock: Clock,
     private val zoneId: ZoneId,
 ) : LeaderboardService {
-
-    override fun top(period: LeaderboardPeriod, limit: Int, viewer: UserId?): LeaderboardView {
+    override fun top(
+        period: LeaderboardPeriod,
+        limit: Int,
+        viewer: UserId?,
+    ): LeaderboardView {
         if (limit !in 1..MAX_LEADERBOARD_LIMIT) {
-            throw ValidationException(
-                "Размер таблицы лидеров должен быть в диапазоне 1..$MAX_LEADERBOARD_LIMIT",
-                mapOf("limit" to limit),
-            )
+            throw ValidationException("Размер таблицы лидеров должен быть в диапазоне 1..$MAX_LEADERBOARD_LIMIT", mapOf("limit" to limit))
         }
         val periodKey = PeriodKey.of(period, today())
         val rows = repository.top(period, periodKey, limit)
-        val viewerRow = viewer?.let { id ->
-            rows.firstOrNull { it.userId == id } ?: repository.rankOf(id, period, periodKey)
-        }
+        val viewerRow =
+            viewer?.let { id ->
+                rows.firstOrNull { it.userId == id } ?: repository.rankOf(id, period, periodKey)
+            }
 
         val names = users.findAllByIds((rows.map { it.userId } + listOfNotNull(viewerRow?.userId)).toSet())
-        fun toEntry(row: RankedRow) = LeaderboardEntry(
-            rank = row.rank,
-            userId = row.userId,
-            displayName = names[row.userId]?.displayName ?: "Аноним",
-            xp = row.xp,
-            sessions = row.sessions,
-            currentUser = row.userId == viewer,
-        )
+
+        fun toEntry(row: RankedRow) =
+            LeaderboardEntry(
+                rank = row.rank,
+                userId = row.userId,
+                displayName = names[row.userId]?.displayName ?: "Аноним",
+                xp = row.xp,
+                sessions = row.sessions,
+                currentUser = row.userId == viewer,
+            )
 
         return LeaderboardView(
             period = period,
@@ -66,10 +70,9 @@ internal class LeaderboardServiceImpl(
  * так цифры в профиле и в таблице лидеров считаются по одному и тому же правилу.
  */
 internal class XpAwardedHandler(
-    private val repository: LeaderboardRepository,
+    private val repository: JdbcLeaderboardRepository,
     private val zoneId: ZoneId,
 ) : DomainEventHandler<XpAwarded> {
-
     override val eventType = XpAwarded::class.java
 
     override fun handle(event: XpAwarded) {

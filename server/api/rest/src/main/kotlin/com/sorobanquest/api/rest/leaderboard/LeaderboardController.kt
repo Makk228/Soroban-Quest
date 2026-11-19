@@ -20,18 +20,7 @@ data class LeaderboardEntryResponse(
     val xp: Long,
     val sessions: Int,
     val currentUser: Boolean,
-) {
-    companion object {
-        fun of(entry: LeaderboardEntry) = LeaderboardEntryResponse(
-            rank = entry.rank,
-            userId = entry.userId.toString(),
-            displayName = entry.displayName,
-            xp = entry.xp,
-            sessions = entry.sessions,
-            currentUser = entry.currentUser,
-        )
-    }
-}
+)
 
 data class LeaderboardResponse(
     val period: LeaderboardPeriod,
@@ -48,7 +37,6 @@ data class LeaderboardResponse(
 class LeaderboardController(
     private val leaderboard: LeaderboardService,
 ) {
-
     @Operation(summary = "Таблица лидеров; строка текущего пользователя возвращается, даже если он вне топа")
     @GetMapping
     fun leaderboard(
@@ -60,9 +48,21 @@ class LeaderboardController(
         return LeaderboardResponse(
             period = view.period,
             periodKey = view.periodKey,
-            entries = view.entries.map(LeaderboardEntryResponse::of),
-            viewerEntry = view.viewerEntry?.let(LeaderboardEntryResponse::of),
+            entries = view.entries.map(LeaderboardEntryResponseFactory::of),
+            viewerEntry = view.viewerEntry?.let(LeaderboardEntryResponseFactory::of),
             totalParticipants = view.totalParticipants,
         )
     }
+}
+
+object LeaderboardEntryResponseFactory {
+    fun of(entry: LeaderboardEntry) =
+        LeaderboardEntryResponse(
+            rank = entry.rank,
+            userId = entry.userId.toString(),
+            displayName = entry.displayName,
+            xp = entry.xp,
+            sessions = entry.sessions,
+            currentUser = entry.currentUser,
+        )
 }

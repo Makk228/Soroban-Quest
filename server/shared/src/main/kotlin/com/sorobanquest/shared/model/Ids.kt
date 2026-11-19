@@ -8,22 +8,40 @@ import java.util.UUID
  * не завися от модуля аутентификации.
  */
 @JvmInline
-value class UserId(val value: UUID) {
+value class UserId(
+    val value: UUID,
+) {
     override fun toString(): String = value.toString()
-
-    companion object {
-        fun parse(raw: String): UserId =
-            UserId(runCatching { UUID.fromString(raw) }.getOrElse { error("Некорректный UserId: $raw") })
-    }
 }
 
 /** Идентификатор тренировочной сессии. */
 @JvmInline
-value class SessionId(val value: UUID) {
+value class SessionId(
+    val value: UUID,
+) {
     override fun toString(): String = value.toString()
+}
 
-    companion object {
-        fun parse(raw: String): SessionId =
-            SessionId(runCatching { UUID.fromString(raw) }.getOrElse { error("Некорректный SessionId: $raw") })
-    }
+object UserIdFactory {
+    fun parse(raw: String): UserId =
+        UserId(
+            runCatching {
+                UUID.fromString(raw)
+            }.getOrElse {
+                throw com.sorobanquest.shared.error
+                    .ValidationException("Некорректный UserId: $raw", emptyMap())
+            },
+        )
+}
+
+object SessionIdFactory {
+    fun parse(raw: String): SessionId =
+        SessionId(
+            runCatching {
+                UUID.fromString(raw)
+            }.getOrElse {
+                throw com.sorobanquest.shared.error
+                    .ValidationException("Некорректный SessionId: $raw", emptyMap())
+            },
+        )
 }

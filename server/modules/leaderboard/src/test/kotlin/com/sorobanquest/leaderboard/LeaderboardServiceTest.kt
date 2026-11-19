@@ -3,15 +3,17 @@ package com.sorobanquest.leaderboard
 import com.sorobanquest.identity.api.UserDirectory
 import com.sorobanquest.identity.api.UserSummary
 import com.sorobanquest.leaderboard.api.LeaderboardPeriod
-import com.sorobanquest.leaderboard.internal.application.LeaderboardRepository
 import com.sorobanquest.leaderboard.internal.application.LeaderboardServiceImpl
 import com.sorobanquest.leaderboard.internal.application.RankedRow
 import com.sorobanquest.leaderboard.internal.application.XpAwardedHandler
 import com.sorobanquest.leaderboard.internal.domain.PeriodKey
+import com.sorobanquest.leaderboard.internal.persistence.JdbcLeaderboardRepository
 import com.sorobanquest.progression.api.XpAwarded
 import com.sorobanquest.shared.error.ValidationException
 import com.sorobanquest.shared.model.SessionId
 import com.sorobanquest.shared.model.UserId
+import io.mockk.every
+import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -22,17 +24,19 @@ import java.time.ZoneOffset
 import java.util.UUID
 
 class LeaderboardServiceTest {
-
     private val now = Instant.parse("2026-10-22T09:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
     private val repository = InMemoryLeaderboardRepository()
     private val leader = UserId(UUID.randomUUID())
     private val viewer = UserId(UUID.randomUUID())
     private val directory = FakeUserDirectory(mapOf(leader to "Лидер", viewer to "Ученик"))
-    private val service = LeaderboardServiceImpl(repository, directory, clock, ZoneOffset.UTC)
+    private val service = LeaderboardServiceImpl(repository.repository, directory, clock, ZoneOffset.UTC)
 
-    private fun award(userId: UserId, xp: Int) {
-        XpAwardedHandler(repository, ZoneOffset.UTC).handle(
+    private fun award(
+        userId: UserId,
+        xp: Int,
+    ) {
+        XpAwardedHandler(repository.repository, ZoneOffset.UTC).handle(
             XpAwarded(
                 userId = userId,
                 xp = xp,
@@ -102,40 +106,75 @@ class LeaderboardServiceTest {
     }
 }
 
-private class FakeUserDirectory(private val names: Map<UserId, String>) : UserDirectory {
-    override fun findById(id: UserId): UserSummary? = names[id]?.let {
-        UserSummary(id, "$it@example.com", it, Instant.EPOCH)
-    }
+private class FakeUserDirectory(
+    private val names: Map<UserId, String>,
+) : UserDirectory {
+    override fun findById(id: UserId): UserSummary? =
+        names[id]?.let {
+            UserSummary(id, "$it@example.com", it, Instant.EPOCH)
+        }
 
     override fun findAllByIds(ids: Collection<UserId>): Map<UserId, UserSummary> =
         ids.mapNotNull { id -> findById(id)?.let { id to it } }.toMap()
 }
 
-private class InMemoryLeaderboardRepository : LeaderboardRepository {
-    private data class Key(val period: LeaderboardPeriod, val periodKey: String, val userId: UserId)
+private class InMemoryLeaderboardRepository {
+    val repository = mockk<JdbcLeaderboardRepository>()
+
+    private data class Key(
+        val period: LeaderboardPeriod,
+        val periodKey: String,
+        val userId: UserId,
+    )
 
     private val xp = LinkedHashMap<Key, Pair<Long, Int>>()
 
-    override fun addXp(userId: UserId, period: LeaderboardPeriod, periodKey: String, xp: Int, sessions: Int) {
+    private fun addXp(
+        userId: UserId,
+        period: LeaderboardPeriod,
+        periodKey: String,
+        xp: Int,
+        sessions: Int,
+    ) {
         val key = Key(period, periodKey, userId)
         val current = this.xp[key] ?: (0L to 0)
         this.xp[key] = (current.first + xp) to (current.second + sessions)
     }
 
-    private fun ranked(period: LeaderboardPeriod, periodKey: String): List<RankedRow> =
-        xp.filterKeys { it.period == period && it.periodKey == periodKey }
+    private fun ranked(
+        period: LeaderboardPeriod,
+        periodKey: String,
+    ): List<RankedRow> =
+        xp
+            .filterKeys { it.period == period && it.periodKey == periodKey }
             .entries
             .sortedByDescending { it.value.first }
             .mapIndexed { index, entry ->
                 RankedRow(index + 1, entry.key.userId, entry.value.first, entry.value.second)
             }
 
-    override fun top(period: LeaderboardPeriod, periodKey: String, limit: Int): List<RankedRow> =
-        ranked(period, periodKey).take(limit)
+    private fun top(
+        period: LeaderboardPeriod,
+        periodKey: String,
+        limit: Int,
+    ): List<RankedRow> = ranked(period, periodKey).take(limit)
 
-    override fun rankOf(userId: UserId, period: LeaderboardPeriod, periodKey: String): RankedRow? =
-        ranked(period, periodKey).firstOrNull { it.userId == userId }
+    private fun rankOf(
+        userId: UserId,
+        period: LeaderboardPeriod,
+        periodKey: String,
+    ): RankedRow? = ranked(period, periodKey).firstOrNull { it.userId == userId }
 
-    override fun countParticipants(period: LeaderboardPeriod, periodKey: String): Long =
-        ranked(period, periodKey).size.toLong()
+    private fun countParticipants(
+        period: LeaderboardPeriod,
+        periodKey: String,
+    ): Long = ranked(period, periodKey).size.toLong()
+
+    init {
+        every { repository.addXp(any(), any(), any(), any(), any()) } answers
+            { addXp(UserId(arg<UUID>(0)), arg<LeaderboardPeriod>(1), arg<String>(2), arg<Int>(3), arg<Int>(4)) }
+        every { repository.top(any(), any(), any()) } answers { top(arg<LeaderboardPeriod>(0), arg<String>(1), arg<Int>(2)) }
+        every { repository.rankOf(any(), any(), any()) } answers { rankOf(UserId(arg<UUID>(0)), arg<LeaderboardPeriod>(1), arg<String>(2)) }
+        every { repository.countParticipants(any(), any()) } answers { countParticipants(arg<LeaderboardPeriod>(0), arg<String>(1)) }
+    }
 }

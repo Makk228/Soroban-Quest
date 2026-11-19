@@ -22,16 +22,12 @@ private val log = KotlinLogging.logger {}
 class SynchronousDomainEventBus(
     private val handlers: ObjectProvider<DomainEventHandler<*>>,
 ) : DomainEventPublisher {
-
     override fun publish(event: DomainEvent) {
-        var delivered = 0
-        handlers.orderedStream().forEach { handler ->
-            if (handler.eventType.isInstance(event)) {
-                @Suppress("UNCHECKED_CAST")
-                (handler as DomainEventHandler<DomainEvent>).handle(event)
-                delivered++
-            }
+        val matchingHandlers = handlers.orderedStream().filter { it.eventType.isInstance(event) }.toList()
+        matchingHandlers.forEach { handler ->
+            @Suppress("UNCHECKED_CAST")
+            (handler as DomainEventHandler<DomainEvent>).handle(event)
         }
-        log.debug { "Событие ${event.javaClass.simpleName} доставлено обработчикам: $delivered" }
+        log.debug { "Событие ${event.javaClass.simpleName} доставлено обработчикам: ${matchingHandlers.size}" }
     }
 }

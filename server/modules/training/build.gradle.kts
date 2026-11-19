@@ -4,9 +4,9 @@
 dependencies {
     api(project(":shared"))
 
-    implementation(libs.spring.context)      // только для @Configuration в composition root модуля
-    implementation(libs.spring.jdbc)         // адаптер персистентности
-    implementation("org.springframework.boot:spring-boot")  // @ConfigurationProperties
+    implementation(libs.spring.context) // только для @Configuration в composition root модуля
+    implementation(libs.spring.jdbc) // адаптер персистентности
+    implementation("org.springframework.boot:spring-boot") // @ConfigurationProperties
     implementation(libs.kotlin.logging)
 
     testImplementation(libs.mockk)

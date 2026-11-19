@@ -7,7 +7,7 @@ create table training.session_answers (
     elapsed_ms      integer     not null check (elapsed_ms > 0),
     awarded_points  integer     not null check (awarded_points >= 0),
     answered_at     timestamptz not null,
-    -- составной первичный ключ делает повторную отправку ответа безопасной:
-    -- параллельные запросы не могут дважды засчитать одно и то же задание
+
+
     primary key (session_id, task_index)
 );
